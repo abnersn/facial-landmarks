@@ -19,7 +19,7 @@ WHITE = [255, 255, 255]
 
 def draw_shape(image, shape):
     radius = int(image.shape[0] * 0.005)
-    for i, point in enumerate(shape):
+    for point in shape:
         draw_point = tuple(np.array(point).astype(int))
         cv2.circle(image, draw_point, radius, WHITE, thickness=-1)
 
@@ -47,34 +47,37 @@ def similarity_transform(shape_a, shape_b):
 
     return (scale_factor, rotation_angle, translation_matrix)
 
+def main():
+    dataset = read_dataset(DATA_PATH)
 
-dataset = read_dataset(DATA_PATH)
+    with open(MEAN_SHAPE_PATH, 'rb') as f:
+        mean_shape = pickle.load(f)
+        # The radius is the distance from the origin to the farthest away point
+        r = np.max(distance(mean_shape, np.zeros(mean_shape.shape)))
+        sorted_points = sort_points(NUMBER_OF_POINTS, [0, 0], r)
 
-with open(MEAN_SHAPE_PATH, 'rb') as f:
-    mean_shape = pickle.load(f)
-    # The radius is the distance from the origin to the farthest away point
-    r = np.max(distance(mean_shape, np.zeros(mean_shape.shape)))
-    sorted_points = sort_points(NUMBER_OF_POINTS, [0, 0], r)
+    for file_name in os.listdir(IMAGE_PATH):
+        img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
 
-for file_name in os.listdir(IMAGE_PATH):
-    img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
+        real_shape = np.array(dataset[file_name[:-4]])
 
-    real_shape = np.array(dataset[file_name[:-4]])
+        scale, angle, translation = similarity_transform(real_shape, mean_shape)
+        new_sorted_points = []
+        for i in range(NUMBER_OF_POINTS):
+            closest_landmark = np.argmin(distance(sorted_points, mean_shape)[i])
+            offset = sorted_points[i] - mean_shape[closest_landmark]
+            offset = rotate(offset / scale, -angle)
+            new_sorted_points.append(real_shape[closest_landmark] + offset)
 
-    scale, angle, translation = similarity_transform(real_shape, mean_shape)
-    new_sorted_points = []
-    for i, point in enumerate(sorted_points):
-        closest_landmark = np.argmin(distance(sorted_points, mean_shape)[i])
-        offset = sorted_points[i] - mean_shape[closest_landmark]
-        offset = rotate(offset / scale, -angle)
-        new_sorted_points.append(real_shape[closest_landmark] + offset)
+        draw_shape(img, new_sorted_points)
 
-    draw_shape(img, new_sorted_points)
+        # draw_shape(img, mean_shape)
+        img = imutils.resize(img, width=400)
+        cv2.imshow('Frame', img)
+        key = cv2.waitKey(1000) & 0xFF
+        if key == 27:
+            print('ESC key pressed.')
+            break
 
-    # draw_shape(img, mean_shape)
-    img = imutils.resize(img, width=400)
-    cv2.imshow('Frame', img)
-    key = cv2.waitKey(1000) & 0xFF
-    if key is 27:
-        print('ESC key pressed.')
-        break
+if __name__ == "__main__":
+    main()
