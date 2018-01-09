@@ -7,11 +7,10 @@ from scipy.spatial.distance import cdist as distance
 from modules.data_manager import read_dataset
 from modules.procrustes import find_theta, rotate
 
-# TODO: use cmd line arguments instead of constants
 IMAGE_PATH = './img'
 DATA_PATH = './data'
-MEAN_SHAPE = 'mean_shape.data'
-NUMBER_OF_POINTS = 2
+MEAN_SHAPE_PATH = 'mean_shape.data'
+NUMBER_OF_POINTS = 400
 
 # COLORS
 RED = [0, 0, 255]
@@ -51,11 +50,11 @@ def similarity_transform(shape_a, shape_b):
 
 dataset = read_dataset(DATA_PATH)
 
-with open(MEAN_SHAPE, 'rb') as f:
+with open(MEAN_SHAPE_PATH, 'rb') as f:
     mean_shape = pickle.load(f)
     # The radius is the distance from the origin to the farthest away point
-    radius = np.max(distance(mean_shape, np.zeros(mean_shape.shape))) / 2
-    sorted_points = sort_points(NUMBER_OF_POINTS, [0, 0], radius * 2)
+    r = np.max(distance(mean_shape, np.zeros(mean_shape.shape)))
+    sorted_points = sort_points(NUMBER_OF_POINTS, [0, 0], r)
 
 for file_name in os.listdir(IMAGE_PATH):
     img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
