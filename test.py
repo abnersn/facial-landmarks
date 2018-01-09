@@ -28,10 +28,8 @@ def sort_points(quantity, centroid, radius):
     angles_base = np.full([quantity, 1], 2 * np.pi)
     angles_random = np.random.rand(quantity, 1)
     angles = np.multiply(angles_base, angles_random)
-    x_coords = np.multiply(
-        np.cos(angles), np.random.rand(quantity, 1) * radius)
-    y_coords = np.multiply(
-        np.sin(angles), np.random.rand(quantity, 1) * radius)
+    x_coords = np.multiply(np.cos(angles), np.random.rand(quantity, 1) * radius)
+    y_coords = np.multiply(np.sin(angles), np.random.rand(quantity, 1) * radius)
     return np.concatenate((x_coords, y_coords), axis=1) + centroid
 
 
@@ -39,15 +37,16 @@ def similarity_transform(shape_a, shape_b):
     translation_matrix = (np.mean(shape_a, axis=0) - np.mean(shape_b, axis=0))
     shape_a = shape_a - translation_matrix
 
-    scale_factor = (np.sum(np.multiply(shape_a, shape_b)) /
-                    np.sum(np.power(shape_a, 2)))
+    product = np.multiply(shape_a, shape_b)
+    scale_factor = (np.sum(product) / np.sum(np.power(shape_a, 2)))
     scaled_shape = shape_a * scale_factor
 
     rotation_angle = find_theta(shape_b, scaled_shape)
 
-    return (scale_factor, rotation_angle, translation_matrix)
+    return (scale_factor, rotation_angle)
 
-def main():
+
+if __name__ == "__main__":
     dataset = read_dataset(DATA_PATH)
 
     with open(MEAN_SHAPE_PATH, 'rb') as f:
@@ -61,7 +60,7 @@ def main():
 
         real_shape = np.array(dataset[file_name[:-4]])
 
-        scale, angle, translation = similarity_transform(real_shape, mean_shape)
+        scale, angle = similarity_transform(real_shape, mean_shape)
         new_sorted_points = []
         for i in range(NUMBER_OF_POINTS):
             closest_landmark = np.argmin(distance(sorted_points, mean_shape)[i])
@@ -78,6 +77,3 @@ def main():
         if key == 27:
             print('ESC key pressed.')
             break
-
-if __name__ == "__main__":
-    main()
