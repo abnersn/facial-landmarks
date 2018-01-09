@@ -13,6 +13,7 @@ import numpy as np
 
 np.set_printoptions(suppress=True)
 
+
 def translate_mean(matrix):
     """Translates the shape to the center of the coordinates system.
 
@@ -24,6 +25,7 @@ def translate_mean(matrix):
     """
     mean = np.mean(matrix, axis=0)
     return matrix - mean
+
 
 def root_mean_square(matrix):
     """Calculates the root mean squared distance of a set of points
@@ -38,6 +40,7 @@ def root_mean_square(matrix):
     square_mean = np.mean(square)
     return np.sqrt(square_mean)
 
+
 def scale_rms(matrix):
     """Scales a given shape so that the root mean squared distance of its
     points be equal to 1.
@@ -50,6 +53,7 @@ def scale_rms(matrix):
     """
     rms = root_mean_square(matrix)
     return matrix / rms
+
 
 def rotate(matrix, theta):
     """Rotates a shape by a given angle in radians along the coordinates
@@ -69,6 +73,7 @@ def rotate(matrix, theta):
     result = np.dot(rotation_matrix, np.transpose(matrix))
     return np.transpose(result)
 
+
 def square_distance(matrix_a, matrix_b):
     """Calculates the sum of the squared distances between the corresponding
     points of two sets.
@@ -83,6 +88,7 @@ def square_distance(matrix_a, matrix_b):
     subtraction = matrix_a - matrix_b
     square = np.power(subtraction, 2)
     return np.sum(square)
+
 
 def find_theta(matrix_a, matrix_b):
     """Calculates the angle by which matrix_b should be rotated in order to
@@ -105,8 +111,9 @@ def find_theta(matrix_a, matrix_b):
     numerator = np.sum(y_values_a * x_values_b - x_values_a * y_values_b)
     denominator = np.sum(x_values_a * x_values_b + y_values_a * y_values_b)
 
-    theta = np.arctan(numerator/denominator)
+    theta = np.arctan(numerator / denominator)
     return theta
+
 
 def frange(start, stop, step):
     """A float version of python's range function. Generates a list that starts
@@ -125,6 +132,7 @@ def frange(start, stop, step):
         yield i
         i += step
 
+
 def mean_of_shapes(dataset):
     """Calculates the average shape of a dataset.
 
@@ -138,6 +146,7 @@ def mean_of_shapes(dataset):
         sample = np.array(points)
         sum_of_samples += sample
     return sum_of_samples / len(dataset)
+
 
 def calculate_procrustes(dataset):
     """Performs Procrustes analysis on a given dataset.

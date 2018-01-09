@@ -24,6 +24,7 @@ __email__ = "abnersousanascimento@gmail.com"
 __status__ = "Development"
 import os
 
+
 def read_dataset(annotations_path):
     """Reads annotations files from dataset.
 
@@ -32,8 +33,8 @@ def read_dataset(annotations_path):
         to current path.
 
     Returns:
-        Dictionary with image file names as keys and an array of points as value
-        for each image.
+        Dictionary with image file names as keys and an array of points as
+        value for each image.
     """
     if not annotations_path:
         annotations_path = "."
@@ -50,6 +51,7 @@ def read_dataset(annotations_path):
                 point = (float(point_x), float(point_y))
                 images_dictionary[image_file_name].append(point)
     return images_dictionary
+
 
 def write_dataset(dataset, save_directory):
     """Writes a dataset as a format that can be read by read_dataset.

@@ -1,6 +1,6 @@
-"""This module implements the Principal Component Analysis, or PCA, for short. The
-PCA is a tool commonly used to solve problems involving high dimensional data, due
-to its dimensional reduction properties.
+"""This module implements the Principal Component Analysis, or PCA, for short.
+The PCA is a tool commonly used to solve problems involving high dimensional
+data, due to its dimensional reduction properties.
 """
 __author__ = "Abner S. Nascimento"
 __copyright__ = "Copyright 2017, Facial Recognition Project"
@@ -9,6 +9,7 @@ __version__ = "1.0"
 __email__ = "abnersousanascimento@gmail.com"
 __status__ = "Development"
 import numpy as np
+
 
 def mean_of_faces(dataset):
     """Calculates the average face of a dataset of shapes.
@@ -24,12 +25,13 @@ def mean_of_faces(dataset):
         sum_of_samples += sample
     return sum_of_samples / len(dataset)
 
+
 def covariance(dataset):
     """Calculates the covariance matrix of the data.
 
     Args:
-        dataset: A dictionary containing the shapes to which the covariance calculus
-                 will be performed.
+        dataset: A dictionary containing the shapes to which the covariance
+                 will be calculated.
     Returns:
         The covariance matrix.
     """
@@ -37,19 +39,22 @@ def covariance(dataset):
     sum_of_samples = np.zeros([194, 194])
     for points in dataset.values():
         sample = np.array(points)
-        sum_of_samples += np.dot((sample - mean), np.transpose(sample-mean))
+        sum_of_samples += np.dot((sample - mean), np.transpose(sample - mean))
     return sum_of_samples / (len(dataset) - 1)
 
+
 def perform_pca(dataset, number_of_params):
-    """Performs the Principal Component Analysis over a high dimensional dataset.
+    """Performs the Principal Component Analysis over a
+    high dimensional dataset.
 
     Args:
-        dataset: A dictionary containing the data to which the PCA shall be applied.
-        number_of_params: Number of parameters (eigenvalues and eigenvectors) desired
-                          for the output.
+        dataset: A dictionary containing the data to which the PCA shall be
+                 applied.
+        number_of_params: Number of parameters (eigenvalues and eigenvectors)
+                          desired for the output.
     Returns:
-        The eigenvalues and eigenvectors of the covariance matrix that corresponds
-        to the result of the PCA.
+        The eigenvalues and eigenvectors of the covariance matrix that
+        corresponds to the result of the PCA.
     """
     covariance_matrix = covariance(dataset)
 
