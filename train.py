@@ -28,8 +28,10 @@ def sort_points(quantity, centroid, radius):
     angles_base = np.full([quantity, 1], 2 * np.pi)
     angles_random = np.random.rand(quantity, 1)
     angles = np.multiply(angles_base, angles_random)
-    x_coords = np.multiply(np.cos(angles), np.random.rand(quantity, 1) * radius)
-    y_coords = np.multiply(np.sin(angles), np.random.rand(quantity, 1) * radius)
+    x_coords = (np.multiply(np.cos(angles),
+                            np.random.rand(quantity, 1) * radius))
+    y_coords = (np.multiply(np.sin(angles),
+                            np.random.rand(quantity, 1) * radius))
     return np.concatenate((x_coords, y_coords), axis=1) + centroid
 
 
@@ -63,10 +65,10 @@ if __name__ == "__main__":
         scale, angle = similarity_transform(real_shape, mean_shape)
         new_sorted_points = []
         for i in range(NUMBER_OF_POINTS):
-            closest_landmark = np.argmin(distance(sorted_points, mean_shape)[i])
-            offset = sorted_points[i] - mean_shape[closest_landmark]
+            closest_point = np.argmin(distance(sorted_points, mean_shape)[i])
+            offset = sorted_points[i] - mean_shape[closest_point]
             offset = rotate(offset / scale, -angle)
-            new_sorted_points.append(real_shape[closest_landmark] + offset)
+            new_sorted_points.append(real_shape[closest_point] + offset)
 
         draw_shape(img, new_sorted_points)
 
