@@ -12,9 +12,9 @@ from multiprocessing import Pool
 IMAGE_PATH = './img'
 DATA_PATH = './data'
 MEAN_SHAPE_PATH = 'mean_shape.data'
-REF_POINTS_PATH = 'reference_points.data'
+REF_POINTS_PATH = 'ref_points.data'
 NUMBER_OF_TREES = 500
-TREES_DEPTH = 5
+TREES_DEPTH = 3
 NUMBER_OF_REGRESSORS = 1
 
 # COLORS
@@ -22,7 +22,7 @@ RED = [0, 0, 255]
 WHITE = [255, 255, 255]
 
 
-def draw_shape(image, shape):
+def plot(image, shape):
     radius = int(image.shape[0] * 0.005)
     for point in shape:
         draw_point = tuple(np.array(point).astype(int))
@@ -53,7 +53,7 @@ def similarity_transform(shape_a, shape_b):
     return (scale_factor, rotation_angle)
 
 
-def warp_points(points, shape_a, shape_b):
+def warp(points, shape_a, shape_b):
     scale, angle = similarity_transform(shape_b, shape_a)
     warped = np.zeros(points.shape)
     distances = distance(points, shape_a)
@@ -67,7 +67,7 @@ def warp_points(points, shape_a, shape_b):
 
 def test(file_name):
     real_shape = np.array(dataset[file_name[:-4]])
-    return warp_points(reference_points, mean_shape, real_shape)
+    return warp(ref_points, mean_shape, real_shape)
 
 
 def get_mean_shape():
@@ -79,16 +79,24 @@ def get_ref_points():
     with open(REF_POINTS_PATH, 'rb') as f:
         return pickle.load(f)
 
-
 if __name__ == "__main__":
     dataset = read_dataset(DATA_PATH)
 
     mean_shape = get_mean_shape()
-    reference_points = get_ref_points()
+    ref_points = get_ref_points()
 
+    print('starting counter')
     start_time = time()
-    print('start')
     p = Pool(4)
-    data = p.map(test, os.listdir(IMAGE_PATH))
-
-print('ellapsed time: {}'.format(time() - start_time))
+    files = os.listdir(IMAGE_PATH)
+    data = p.map(test, files)
+    data = zip(files, data)
+    print('ellapsed time: {}'.format(time() - start_time))
+    for file_name, points in data:
+        img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
+        plot(img, points)
+        cv2.imshow('Image', img)
+        key = cv2.waitKey(1000) & 0xFF
+        if key == 27:
+            print('ESC pressed')
+            break
