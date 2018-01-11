@@ -4,15 +4,15 @@ import os
 import numpy as np
 import cv2
 from time import time
-import imutils
 from scipy.spatial.distance import cdist as distance
 from modules.data_manager import read_dataset
 from modules.procrustes import find_theta, rotate
+from multiprocessing import Pool
 
 IMAGE_PATH = './img'
 DATA_PATH = './data'
 MEAN_SHAPE_PATH = 'mean_shape.data'
-NUMBER_OF_POINTS = 400
+REF_POINTS_PATH = 'reference_points.data'
 NUMBER_OF_TREES = 500
 TREES_DEPTH = 5
 NUMBER_OF_REGRESSORS = 1
@@ -53,65 +53,42 @@ def similarity_transform(shape_a, shape_b):
     return (scale_factor, rotation_angle)
 
 
+def warp_points(points, shape_a, shape_b):
+    scale, angle = similarity_transform(shape_b, shape_a)
+    warped = np.zeros(points.shape)
+    distances = distance(points, shape_a)
+    for i in range(len(points)):
+        closest_point = np.argmin(distances[i])
+        offset = points[i] - shape_a[closest_point]
+        offset = rotate(offset / scale, -angle)
+        warped[i] = shape_b[closest_point] + offset
+    return warped
+
+
+def test(file_name):
+    real_shape = np.array(dataset[file_name[:-4]])
+    return warp_points(reference_points, mean_shape, real_shape)
+
+
+def get_mean_shape():
+    with open(MEAN_SHAPE_PATH, 'rb') as f:
+        return pickle.load(f)
+
+
+def get_ref_points():
+    with open(REF_POINTS_PATH, 'rb') as f:
+        return pickle.load(f)
+
+
 if __name__ == "__main__":
     dataset = read_dataset(DATA_PATH)
 
-    with open(MEAN_SHAPE_PATH, 'rb') as f:
-        mean_shape = pickle.load(f)
-
-    # The radius is the distance from the origin to the farthest away point
-    r = np.max(distance(mean_shape, np.zeros(mean_shape.shape)))
-    sorted_points = sort_points(NUMBER_OF_POINTS, [0, 0], r)
+    mean_shape = get_mean_shape()
+    reference_points = get_ref_points()
 
     start_time = time()
+    print('start')
+    p = Pool(4)
+    data = p.map(test, os.listdir(IMAGE_PATH))
 
-    group_l = []
-    group_r = []
-
-    chosen_points = np.arange(NUMBER_OF_POINTS)
-    np.random.shuffle(chosen_points)
-    for img_number, file_name in enumerate(os.listdir(IMAGE_PATH)):
-        print('Processing image {}: {}'.format(img_number, file_name))
-        img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
-
-        real_shape = np.array(dataset[file_name[:-4]])
-        estimated_shape = np.copy(mean_shape)
-
-        scale, angle = similarity_transform(real_shape, estimated_shape)
-
-        warped_points = np.zeros(sorted_points.shape)
-        for i in range(NUMBER_OF_POINTS):
-            closest_point = np.argmin(distance(sorted_points,
-                                               estimated_shape)[i])
-            offset = sorted_points[i] - estimated_shape[closest_point]
-            offset = rotate(offset / scale, -angle)
-            warped_points[i] = real_shape[closest_point] + offset
-
-            # Warp overlapping points around image
-            if warped_points[i][0] > img.shape[1]:
-                warped_points[i][0] = warped_points[i][0] - img.shape[1]
-            if warped_points[i][1] > img.shape[0]:
-                warped_points[i][1] = warped_points[i][1] - img.shape[0]
-
-        point_u = tuple(warped_points[chosen_points[0]].astype(int))
-        point_v = tuple(warped_points[chosen_points[1]].astype(int))
-
-        intensity_u = img.item(point_u[1], point_u[0])
-        intensity_v = img.item(point_v[1], point_v[0])
-        if (intensity_u - intensity_v) > 50:
-            group_l.append(file_name)
-            print("left")
-        else:
-            group_r.append(file_name)
-            print("right")
-
-    # for file_name in group_l:
-        # draw_shape(img, warped_points)
-        # img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
-        # img = imutils.resize(img, width=400)
-        # cv2.imshow('Frame', img)
-        # key = cv2.waitKey(10) & 0xFF
-        # if key == 27:
-        #     print('ESC key pressed.')
-        #     break
 print('ellapsed time: {}'.format(time() - start_time))
