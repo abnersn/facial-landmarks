@@ -12,7 +12,7 @@ from modules.procrustes import find_theta, rotate
 
 IMAGE_PATH = './img'
 DATA_PATH = './data'
-MEAN_SHAPE_PATH = 'mean_shape.data'
+SHAPES_MEAN_PATH = 'shapes_mean.data'
 REF_POINTS_PATH = 'ref_points.data'
 NUMBER_OF_TREES = 500
 TREES_DEPTH = 3
@@ -68,11 +68,11 @@ def warp(points, shape_a, shape_b):
 
 def process(name):
     real_shape = np.array(dataset[name[:-4]])
-    return warp(ref_points, mean_shape, real_shape)
+    return warp(ref_points, shapes_mean, real_shape)
 
 
-def get_mean_shape():
-    with open(MEAN_SHAPE_PATH, 'rb') as f:
+def get_shapes_mean():
+    with open(SHAPES_MEAN_PATH, 'rb') as f:
         return pickle.load(f)
 
 
@@ -80,11 +80,26 @@ def get_ref_points():
     with open(REF_POINTS_PATH, 'rb') as f:
         return pickle.load(f)
 
+def get_pixel_intensity(data):
+    for file_name, points in data.items():
+        img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
+        intensity_data = []
+        for point in points:
+            # Fix points that exceed the image limits
+            row = point[1].astype(int) % img.shape[0]
+            col = point[0].astype(int) % img.shape[1]
+
+            # Appends pixel intensity to corresponding vector
+            intensity_data.append(img.item(row, col))
+
+        # Replaces original points information with intensities
+        data[file_name] = intensity_data
+
 if __name__ == "__main__":
     print('reading dataset...')
     dataset = read_dataset(DATA_PATH)
 
-    mean_shape = get_mean_shape()
+    shapes_mean = get_shapes_mean()
     ref_points = get_ref_points()
 
     print('warping points...')
@@ -94,14 +109,7 @@ if __name__ == "__main__":
     data = dict(zip(files, data))
 
     print('capturing pixel intensity data...')
-    for file_name, points in data.items():
-        img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
-        intensity_data = []
-        for point in points:
-            row = point[1].astype(int) % img.shape[0]
-            col = point[0].astype(int) % img.shape[1]
-            intensity_data.append(img.item(row, col))
-        data[file_name] = intensity_data
+    get_pixel_intensity(data)
         # cv2.imshow('teste', img)
         # cv2.waitKey(1000)
     print(data)
