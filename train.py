@@ -66,11 +66,6 @@ def warp(points, shape_a, shape_b):
     return warped
 
 
-def process(name):
-    real_shape = np.array(dataset[name[:-4]])
-    return warp(ref_points, shapes_mean, real_shape)
-
-
 def get_shapes_mean():
     with open(SHAPES_MEAN_PATH, 'rb') as f:
         return pickle.load(f)
@@ -80,8 +75,8 @@ def get_ref_points():
     with open(REF_POINTS_PATH, 'rb') as f:
         return pickle.load(f)
 
-def get_pixel_intensity(data):
-    for file_name, points in data.items():
+def get_pixel_intensity(shape_data):
+    for file_name, points in shape_data.items():
         img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
         intensity_data = []
         for point in points:
@@ -93,23 +88,61 @@ def get_pixel_intensity(data):
             intensity_data.append(img.item(row, col))
 
         # Replaces original points information with intensities
-        data[file_name] = intensity_data
+        shape_data[file_name] = intensity_data
+    return shape_data
+
+
+def process(name):
+    real_shape = np.array(dataset[name[:-4]])
+    return warp(ref_points, shapes_mean, real_shape)
+
+
+def split_node(shapes, split):
+    left = []
+    right = []
+    for shape in shapes:
+        if shape[split[0]] - shape[split[1]] > split[2]:
+            left.append(shape)
+        else:
+            right.append(shape)
+    return (left, right)
+
+def grow_tree(shapes, splits):
+    nodes_queue = [shapes]
+    levels_queue = [0]
+    while len(nodes_queue) > 0:
+        node = nodes_queue.pop(0)
+        level = levels_queue.pop(0)
+        left, right = split_node(node, splits[level])
+        nodes_queue.append(left)
+        levels_queue.append(level + 1)
+        
+        nodes_queue.append(right)
+        levels_queue.append(level + 1)
+
 
 if __name__ == "__main__":
     print('reading dataset...')
     dataset = read_dataset(DATA_PATH)
+    files = os.listdir(IMAGE_PATH)
 
     shapes_mean = get_shapes_mean()
     ref_points = get_ref_points()
 
     print('warping points...')
     p = Pool(4)
-    files = os.listdir(IMAGE_PATH)
     data = p.map(process, files)
     data = dict(zip(files, data))
 
     print('capturing pixel intensity data...')
-    get_pixel_intensity(data)
-        # cv2.imshow('teste', img)
-        # cv2.waitKey(1000)
-    print(data)
+    data = get_pixel_intensity(data)
+
+    for k in range(NUMBER_OF_TREES):
+        splits = []
+        for f in range(TREES_DEPTH):
+            sort_aux = np.arange(len(ref_points))
+            np.random.shuffle(sort_aux)
+            u = sort_aux[0]
+            v = sort_aux[1]
+            threshold = np.random.randint(255)
+            splits.append((u, v, threshold))
