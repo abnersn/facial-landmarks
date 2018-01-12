@@ -1,13 +1,14 @@
 #!/bin/python3.6
+from multiprocessing import Pool
+from time import time
 import pickle
 import os
 import numpy as np
 import cv2
-from time import time
+from imutils import resize
 from scipy.spatial.distance import cdist as distance
 from modules.data_manager import read_dataset
 from modules.procrustes import find_theta, rotate
-from multiprocessing import Pool
 
 IMAGE_PATH = './img'
 DATA_PATH = './data'
@@ -65,8 +66,8 @@ def warp(points, shape_a, shape_b):
     return warped
 
 
-def test(file_name):
-    real_shape = np.array(dataset[file_name[:-4]])
+def process(name):
+    real_shape = np.array(dataset[name[:-4]])
     return warp(ref_points, mean_shape, real_shape)
 
 
@@ -80,23 +81,27 @@ def get_ref_points():
         return pickle.load(f)
 
 if __name__ == "__main__":
+    print('reading dataset...')
     dataset = read_dataset(DATA_PATH)
 
     mean_shape = get_mean_shape()
     ref_points = get_ref_points()
 
-    print('starting counter')
-    start_time = time()
+    print('warping points...')
     p = Pool(4)
     files = os.listdir(IMAGE_PATH)
-    data = p.map(test, files)
-    data = zip(files, data)
-    print('ellapsed time: {}'.format(time() - start_time))
-    for file_name, points in data:
+    data = p.map(process, files)
+    data = dict(zip(files, data))
+
+    print('capturing pixel intensity data...')
+    for file_name, points in data.items():
         img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
-        plot(img, points)
-        cv2.imshow('Image', img)
-        key = cv2.waitKey(1000) & 0xFF
-        if key == 27:
-            print('ESC pressed')
-            break
+        intensity_data = []
+        for point in points:
+            row = point[1].astype(int) % img.shape[0]
+            col = point[0].astype(int) % img.shape[1]
+            intensity_data.append(img.item(row, col))
+        data[file_name] = intensity_data
+        # cv2.imshow('teste', img)
+        # cv2.waitKey(1000)
+    print(data)
