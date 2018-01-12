@@ -97,28 +97,32 @@ def process(name):
     return warp(ref_points, shapes_mean, real_shape)
 
 
-def split_node(shapes, split):
+def split_node(files, split, intensity_data):
     left = []
     right = []
-    for shape in shapes:
-        if shape[split[0]] - shape[split[1]] > split[2]:
-            left.append(shape)
+    for file_name in files:
+        intensity_u = intensity_data[file_name][split[0]]
+        intensity_v = intensity_data[file_name][split[1]]
+        if intensity_u - intensity_v > split[2]:
+            left.append(file_name)
         else:
-            right.append(shape)
+            right.append(file_name)
     return (left, right)
 
-def grow_tree(shapes, splits):
-    nodes_queue = [shapes]
+def grow_tree(files, splits, intensity_data):
+    nodes_queue = [files]
     levels_queue = [0]
-    while len(nodes_queue) > 0:
+    for i in range(pow(2, len(splits)) - 1):
         node = nodes_queue.pop(0)
         level = levels_queue.pop(0)
-        left, right = split_node(node, splits[level])
+        print('splitting node {} by split criteria {}...'.format(i, level))
+        left, right = split_node(node, splits[level], intensity_data)
         nodes_queue.append(left)
         levels_queue.append(level + 1)
-        
+
         nodes_queue.append(right)
         levels_queue.append(level + 1)
+    return nodes_queue
 
 
 if __name__ == "__main__":
@@ -137,12 +141,15 @@ if __name__ == "__main__":
     print('capturing pixel intensity data...')
     data = get_pixel_intensity(data)
 
-    for k in range(NUMBER_OF_TREES):
-        splits = []
-        for f in range(TREES_DEPTH):
-            sort_aux = np.arange(len(ref_points))
-            np.random.shuffle(sort_aux)
-            u = sort_aux[0]
-            v = sort_aux[1]
-            threshold = np.random.randint(255)
-            splits.append((u, v, threshold))
+    # for k in range(NUMBER_OF_TREES):
+    print('growing tree...')
+    tree_splits = []
+    for f in range(TREES_DEPTH):
+        sort_aux = np.arange(len(ref_points))
+        np.random.shuffle(sort_aux)
+        u = sort_aux[0]
+        v = sort_aux[1]
+        threshold = np.random.randint(255)
+        tree_splits.append((u, v, threshold))
+    tree = grow_tree(files, tree_splits, data)
+    print(len(tree))
