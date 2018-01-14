@@ -51,11 +51,11 @@ def similarity_transform(shape_a, shape_b):
 
     rotation_angle = find_theta(shape_b, scaled_shape)
 
-    return (scale_factor, rotation_angle)
+    return (scale_factor, rotation_angle, translation_matrix)
 
 
 def warp(points, shape_a, shape_b):
-    scale, angle = similarity_transform(shape_b, shape_a)
+    scale, angle, _ = similarity_transform(shape_b, shape_a)
     warped = np.zeros(points.shape)
     distances = distance(points, shape_a)
     for i in range(len(points)):
@@ -152,4 +152,9 @@ if __name__ == "__main__":
         threshold = np.random.randint(255)
         tree_splits.append((u, v, threshold))
     tree = grow_tree(files, tree_splits, data)
+    for leaf in tree:
+        for file_name in leaf:
+            real_shape = np.array(dataset[file_name[:-4]])
+            s, _, t = similarity_transform(shapes_mean, real_shape)
+            estimation = (shapes_mean * s) + t
     print(len(tree))
