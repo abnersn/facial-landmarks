@@ -2,7 +2,7 @@
 from multiprocessing import Pool
 from time import time
 import pickle
-import os
+import os, sys
 import numpy as np
 import cv2
 from imutils import resize
@@ -17,6 +17,7 @@ REF_POINTS_PATH = 'ref_points.data'
 NUMBER_OF_TREES = 500
 TREES_DEPTH = 3
 NUMBER_OF_REGRESSORS = 1
+SHRINKAGE_FACTOR = 0.01
 
 # COLORS
 RED = [0, 0, 255]
@@ -153,8 +154,19 @@ if __name__ == "__main__":
         tree_splits.append((u, v, threshold))
     tree = grow_tree(files, tree_splits, data)
     for leaf in tree:
+        delta_landmarks = np.zeros(shapes_mean.shape)
         for file_name in leaf:
             real_shape = np.array(dataset[file_name[:-4]])
-            s, _, t = similarity_transform(shapes_mean, real_shape)
-            estimation = (shapes_mean * s) + t
+            s, _, t = similarity_transform(real_shape, shapes_mean)
+            estimation = (shapes_mean / s) + t
+            delta_landmarks += real_shape - estimation
+            # img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
+            # plot(img, estimation)
+            # resized = resize(img, width=400)
+            # cv2.imshow('image', resized)
+            # k = cv2.waitKey(1000) & 0xFF
+            # if k == 27:
+            #     sys.exit(1)
+        delta_landmarks = SHRINKAGE_FACTOR * (delta_landmarks / len(leaf))
+        print(delta_landmarks)
     print(len(tree))
