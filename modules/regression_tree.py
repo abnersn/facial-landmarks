@@ -1,38 +1,47 @@
+import numpy as np
+
 class RegressionTree:
-    def split_node(self, split_data, intensity_data):
+
+    def __split_node(self, node, criteria, intensity_data):
         left = []
         right = []
-        for file_name in self.file_names:
-            intensity_u = intensity_data[file_name][split_data[0]]
-            intensity_v = intensity_data[file_name][split_data[1]]
-            if intensity_u - intensity_v > split_data[2]:
+        for file_name in node:
+            intensity_u = intensity_data[file_name][criteria[0]]
+            intensity_v = intensity_data[file_name][criteria[1]]
+            if intensity_u - intensity_v > criteria[2]:
                 left.append(file_name)
             else:
                 right.append(file_name)
         return (left, right)
 
-    def grow(self, data):
+
+    def __generate_nodes(self, intensity_data):
         nodes_queue = [self.file_names]
         levels_queue = [0]
-        for i in range(pow(2, len(splits)) - 1):
+        for i in range(pow(2, len(self.splits)) - 1):
             node = nodes_queue.pop(0)
             level = levels_queue.pop(0)
             print('splitting node {} by split criteria {}...'.format(i, level))
-            left, right = split_node(node, splits[level], intensity_data)
+            left, right = self.__split_node(node,
+                                            self.splits[level],
+                                            intensity_data)
             nodes_queue.append(left)
             levels_queue.append(level + 1)
 
             nodes_queue.append(right)
             levels_queue.append(level + 1)
         return nodes_queue
-        for leaf in grow_tree(files, tree_splits, data):
-            delta_landmarks = np.zeros(shapes_mean.shape)
+
+    def grow(self, ref_dataset, est_dataset, intensity_data, shrinkage_factor):
+        for leaf in self.__generate_nodes(intensity_data):
+            delta_landmarks = np.zeros(est_dataset[0].shape)
             for file_name in leaf:
-                real_shape = np.array(dataset[file_name[:-4]])
-                s, _, t = similarity_transform(real_shape, shapes_mean)
-                estimation = (shapes_mean / s) + t
-                delta_landmarks += real_shape - estimation
-            delta_landmarks = SHRINKAGE_FACTOR * (delta_landmarks / len(leaf))
+                real_shape = np.array(ref_dataset, est_dataset[file_name[:-4]])
+                delta_landmarks += (real_shape - est_dataset[file_name])
+            delta_landmarks = (delta_landmarks / len(leaf))
+            self.delta_landmarks.append(shrinkage_factor * delta_landmarks)
+
+
     def generate_splits(self, number_of_points):
         for _ in range(self.depth):
             sort_aux = np.arange(number_of_points)

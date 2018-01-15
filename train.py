@@ -1,13 +1,14 @@
 #!/bin/python3.6
 from multiprocessing import Pool
-from time import time
+# from time import time
 import pickle
 import os, sys
 import numpy as np
 import cv2
-from imutils import resize
+# from imutils import resize
 from scipy.spatial.distance import cdist as distance
 from modules.data_manager import read_dataset
+from modules.regression_tree import RegressionTree
 from modules.procrustes import find_theta, rotate
 
 
@@ -115,6 +116,14 @@ if __name__ == "__main__":
     print('capturing pixel intensity data...')
     data = get_pixel_intensity(data)
 
+    # Calculate first estimation for each image
+    data_estimation = {}
+    for file_name in files:
+        real_shape = dataset[file_name[:-4]]
+        s, _, t = similarity_transform(shapes_mean, real_shape)
+        data_estimation[file_name] = (shapes_mean / s) - t
     # for k in range(NUMBER_OF_TREES):
-    print('growing tree...')
-    tree = RegressionTree(TREES_DEPTH)
+    # print('growing tree...')
+    # tree = RegressionTree(TREES_DEPTH, files)
+    # tree.grow(dataset, data, shapes_mean, SHRINKAGE_FACTOR)
+    # print(len(tree.delta_landmarks))
