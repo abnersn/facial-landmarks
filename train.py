@@ -10,6 +10,7 @@ from scipy.spatial.distance import cdist as distance
 from modules.data_manager import read_dataset
 from modules.procrustes import find_theta, rotate
 
+
 IMAGE_PATH = './img'
 DATA_PATH = './data'
 SHAPES_MEAN_PATH = 'shapes_mean.data'
@@ -98,34 +99,6 @@ def process(name):
     return warp(ref_points, shapes_mean, real_shape)
 
 
-def split_node(files, split, intensity_data):
-    left = []
-    right = []
-    for file_name in files:
-        intensity_u = intensity_data[file_name][split[0]]
-        intensity_v = intensity_data[file_name][split[1]]
-        if intensity_u - intensity_v > split[2]:
-            left.append(file_name)
-        else:
-            right.append(file_name)
-    return (left, right)
-
-def grow_tree(files, splits, intensity_data):
-    nodes_queue = [files]
-    levels_queue = [0]
-    for i in range(pow(2, len(splits)) - 1):
-        node = nodes_queue.pop(0)
-        level = levels_queue.pop(0)
-        print('splitting node {} by split criteria {}...'.format(i, level))
-        left, right = split_node(node, splits[level], intensity_data)
-        nodes_queue.append(left)
-        levels_queue.append(level + 1)
-
-        nodes_queue.append(right)
-        levels_queue.append(level + 1)
-    return nodes_queue
-
-
 if __name__ == "__main__":
     print('reading dataset...')
     dataset = read_dataset(DATA_PATH)
@@ -144,29 +117,4 @@ if __name__ == "__main__":
 
     # for k in range(NUMBER_OF_TREES):
     print('growing tree...')
-    tree_splits = []
-    for f in range(TREES_DEPTH):
-        sort_aux = np.arange(len(ref_points))
-        np.random.shuffle(sort_aux)
-        u = sort_aux[0]
-        v = sort_aux[1]
-        threshold = np.random.randint(255)
-        tree_splits.append((u, v, threshold))
-    tree = grow_tree(files, tree_splits, data)
-    for leaf in tree:
-        delta_landmarks = np.zeros(shapes_mean.shape)
-        for file_name in leaf:
-            real_shape = np.array(dataset[file_name[:-4]])
-            s, _, t = similarity_transform(real_shape, shapes_mean)
-            estimation = (shapes_mean / s) + t
-            delta_landmarks += real_shape - estimation
-            # img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
-            # plot(img, estimation)
-            # resized = resize(img, width=400)
-            # cv2.imshow('image', resized)
-            # k = cv2.waitKey(1000) & 0xFF
-            # if k == 27:
-            #     sys.exit(1)
-        delta_landmarks = SHRINKAGE_FACTOR * (delta_landmarks / len(leaf))
-        print(delta_landmarks)
-    print(len(tree))
+    tree = RegressionTree(TREES_DEPTH)
