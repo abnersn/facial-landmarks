@@ -34,10 +34,11 @@ class RegressionTree:
 
     def grow(self, ref_dataset, est_dataset, intensity_data, shrinkage_factor):
         for leaf in self.__generate_nodes(intensity_data):
-            delta_landmarks = np.zeros(est_dataset[0].shape)
+            delta_landmarks = np.zeros(est_dataset[next(iter(est_dataset))].shape)
             for file_name in leaf:
-                real_shape = np.array(ref_dataset, est_dataset[file_name[:-4]])
-                delta_landmarks += (real_shape - est_dataset[file_name])
+                real_shape = np.array(ref_dataset[file_name[:-4]])
+                estimated_shape = np.array(est_dataset[file_name[:-4]])
+                delta_landmarks += (real_shape - estimated_shape)
             delta_landmarks = (delta_landmarks / len(leaf))
             self.delta_landmarks.append(shrinkage_factor * delta_landmarks)
 

@@ -1,11 +1,11 @@
 #!/bin/python3.6
 from multiprocessing import Pool
-# from time import time
+from time import time
 import pickle
 import os, sys
 import numpy as np
 import cv2
-# from imutils import resize
+from imutils import resize
 from scipy.spatial.distance import cdist as distance
 from modules.data_manager import read_dataset
 from modules.regression_tree import RegressionTree
@@ -119,11 +119,23 @@ if __name__ == "__main__":
     # Calculate first estimation for each image
     data_estimation = {}
     for file_name in files:
-        real_shape = dataset[file_name[:-4]]
-        s, _, t = similarity_transform(shapes_mean, real_shape)
-        data_estimation[file_name] = (shapes_mean / s) - t
-    # for k in range(NUMBER_OF_TREES):
-    # print('growing tree...')
-    # tree = RegressionTree(TREES_DEPTH, files)
-    # tree.grow(dataset, data, shapes_mean, SHRINKAGE_FACTOR)
-    # print(len(tree.delta_landmarks))
+        real_shape = np.array(dataset[file_name[:-4]])
+        s, _, t = similarity_transform(real_shape, shapes_mean)
+        data_estimation[file_name[:-4]] = (shapes_mean / s) + t
+
+        # img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
+        # plot(img, data_estimation[file_name[:-4]])
+        # resized = resize(img, width=400)
+        # cv2.imshow('image', resized)
+        # k = cv2.waitKey(1000) & 0xFF
+        # if k == 27:
+        #     sys.exit(1)
+    regressor = []
+    for k in range(NUMBER_OF_TREES):
+        print('growing tree {}...'.format(k))
+        tree = RegressionTree(TREES_DEPTH, files)
+        tree.grow(dataset, data_estimation, data, SHRINKAGE_FACTOR)
+        regressor.append(tree)
+    with open('regressor.data', 'wb') as f:
+        pickle.dump(regressor, f)
+    print('finished')
