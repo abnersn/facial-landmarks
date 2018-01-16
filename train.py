@@ -110,32 +110,28 @@ if __name__ == "__main__":
 
     print('warping points...')
     p = Pool(4)
-    data = p.map(process, files)
-    data = dict(zip(files, data))
+    intensity_data = p.map(process, files)
+    intensity_data = dict(zip(files, intensity_data))
 
     print('capturing pixel intensity data...')
-    data = get_pixel_intensity(data)
+    intensity_data = get_pixel_intensity(intensity_data)
 
     # Calculate first estimation for each image
-    data_estimation = {}
+    training_data = {}
     for file_name in files:
         real_shape = np.array(dataset[file_name[:-4]])
         s, _, t = similarity_transform(real_shape, shapes_mean)
-        data_estimation[file_name[:-4]] = (shapes_mean / s) + t
+        estimation = (shapes_mean / s) + t
+        training_data[file_name[:-4]] = real_shape - estimation
 
-        # img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
-        # plot(img, data_estimation[file_name[:-4]])
-        # resized = resize(img, width=400)
-        # cv2.imshow('image', resized)
-        # k = cv2.waitKey(1000) & 0xFF
-        # if k == 27:
-        #     sys.exit(1)
+    labels = [file_name[:-4] for file_name in files]
+
     regressor = []
     for k in range(NUMBER_OF_TREES):
         print('growing tree {}...'.format(k))
-        tree = RegressionTree(TREES_DEPTH, files)
-        tree.grow(dataset, data_estimation, data, SHRINKAGE_FACTOR)
+        tree = RegressionTree(TREES_DEPTH, labels, training_data, intensity_data)
         regressor.append(tree)
     with open('regressor.data', 'wb') as f:
         pickle.dump(regressor, f)
+    print(regressor[0].predictions[0])
     print('finished')

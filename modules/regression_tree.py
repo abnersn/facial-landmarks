@@ -2,55 +2,76 @@ import numpy as np
 
 class RegressionTree:
 
-    def __split_node(self, node, criteria, intensity_data):
+    @staticmethod
+    def __split_node(node, split_params, split_data):
         left = []
         right = []
-        for file_name in node:
-            intensity_u = intensity_data[file_name][criteria[0]]
-            intensity_v = intensity_data[file_name][criteria[1]]
-            if intensity_u - intensity_v > criteria[2]:
-                left.append(file_name)
+        for label in node:
+            intensity_u = split_data[label][split_params[0]]
+            intensity_v = split_data[label][split_params[1]]
+            if abs(intensity_u - intensity_v) > split_params[2]:
+                left.append(label)
             else:
-                right.append(file_name)
+                right.append(label)
         return (left, right)
 
 
-    def __generate_nodes(self, intensity_data):
-        nodes_queue = [self.file_names]
+    def __predict_node(self, node, training_data):
+        prediction = np.zeros(training_data[node[0]].shape)
+        for label in node:
+            prediction += training_data[label]
+        return prediction / len(node)
+
+
+    def __calc_split(self, node, training_data, split_data):
+        points = np.arange(len(split_data))
+        np.random.shuffle(points)
+        if len(points) % 2 != 0:
+            points = np.delete(points, 0)
+        pairs = np.split(points, len(points) / 2)[0:20]
+        threshold = np.mean([x - y for x, y in pairs])
+        best_pair = pairs[0]
+        smallest_error = float("inf")
+        for pair in pairs:
+            split_params = (pair[0], pair[1], threshold)
+            left, right = self.__split_node(node, split_params, split_data)
+            prediction_left = self.__predict_node(left, training_data)
+            prediction_right = self.__predict_node(right, training_data)
+            error = 0
+            for label in left:
+                diff = np.power(training_data[label] - prediction_left, 2)
+                error += np.sum(diff)
+            for label in right:
+                diff = np.power(training_data[label] - prediction_right, 2)
+                error += np.sum(diff)
+            if error < smallest_error:
+                smallest_error = error
+                best_pair = pair
+        return (best_pair[0], best_pair[1], threshold)
+
+
+    def __grow(self, labels, training_data, split_data):
+        nodes_queue = [labels]
         levels_queue = [0]
-        for i in range(pow(2, len(self.splits)) - 1):
+        for _ in range(pow(2, len(self.splits)) - 1):
             node = nodes_queue.pop(0)
             level = levels_queue.pop(0)
-            print('splitting node {} by split criteria {}...'.format(i, level))
-            left, right = self.__split_node(node,
-                                            self.splits[level],
-                                            intensity_data)
+            split_params = self.__calc_split(node, training_data, split_data)
+            self.splits.append(split_params)
+            left, right = self.__split_node(node, split_params, split_data)
             nodes_queue.append(left)
             levels_queue.append(level + 1)
 
             nodes_queue.append(right)
             levels_queue.append(level + 1)
-        return nodes_queue
-
-    def grow(self, ref_dataset, est_dataset, intensity_data, shrinkage_factor):
-        for leaf in self.__generate_nodes(intensity_data):
-            delta_landmarks = np.zeros(est_dataset[next(iter(est_dataset))].shape)
-            for file_name in leaf:
-                real_shape = np.array(ref_dataset[file_name[:-4]])
-                estimated_shape = np.array(est_dataset[file_name[:-4]])
-                delta_landmarks += (real_shape - estimated_shape)
-            delta_landmarks = (delta_landmarks / len(leaf))
-            self.delta_landmarks.append(shrinkage_factor * delta_landmarks)
+        for leaf in nodes_queue:
+            self.predictions.append(self.__predict_node(leaf, training_data))
+            
 
 
-    def generate_splits(self, number_of_points):
-        for _ in range(self.depth):
-            sort_aux = np.arange(number_of_points)
-            np.random.shuffle(sort_aux)
-            threshold = np.random.randint(255)
-            self.splits.append((sort_aux[0], sort_aux[1], threshold))
-    def __init__(self, depth, file_names):
+    def __init__(self, depth, labels, training_data, split_data):
         self.depth = depth
-        self.file_names = file_names
         self.splits = []
-        self.delta_landmarks = []
+        self.predictions = []
+
+        self.__grow(labels, training_data, split_data)
