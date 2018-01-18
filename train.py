@@ -80,7 +80,7 @@ def get_ref_points():
 
 def get_pixel_intensity(shape_data):
     for file_name, points in shape_data.items():
-        img = cv2.imread(os.path.join(IMAGE_PATH, file_name), 0)
+        img = cv2.imread(os.path.join(IMAGE_PATH, file_name + '.jpg'), 0)
         intensity_data = []
         for point in points:
             # Fix points that exceed the image limits
@@ -96,14 +96,19 @@ def get_pixel_intensity(shape_data):
 
 
 def process(name):
-    real_shape = np.array(dataset[name[:-4]])
-    return warp(ref_points, shapes_mean, real_shape)
+    real_shape = np.array(dataset[name])
+    estimation = -1 * (training_data[name] - real_shape)
+    return warp(ref_points, estimation, real_shape)
 
 
 if __name__ == "__main__":
     print('reading dataset...')
     dataset = read_dataset(DATA_PATH)
-    files = os.listdir(IMAGE_PATH)
+    with open('./training_data2.data', 'rb') as f:
+        training_data = pickle.load(f)
+        print(len(dataset.keys()))
+        print(len(training_data.keys()))
+    files = [file_name[:-4] for file_name in os.listdir(IMAGE_PATH)]
 
     shapes_mean = get_shapes_mean()
     ref_points = get_ref_points()
@@ -116,22 +121,22 @@ if __name__ == "__main__":
     print('capturing pixel intensity data...')
     intensity_data = get_pixel_intensity(intensity_data)
 
-    # Calculate first estimation for each image
-    training_data = {}
-    for file_name in files:
-        real_shape = np.array(dataset[file_name[:-4]])
-        s, _, t = similarity_transform(real_shape, shapes_mean)
-        estimation = (shapes_mean / s) + t
-        training_data[file_name[:-4]] = real_shape - estimation
+    # print('calculating estimations...')
+    # # Calculate first estimation for each image
+    # training_data = {}
+    # for file_name in files:
+    #     real_shape = np.array(dataset[file_name])
+    #     s, _, t = similarity_transform(real_shape, shapes_mean)
+    #     estimation = (shapes_mean / s) + t
+    #     training_data[file_name] = real_shape - estimation
 
-    labels = [file_name[:-4] for file_name in files]
 
     regressor = []
     for k in range(NUMBER_OF_TREES):
         print('growing tree {}...'.format(k))
-        tree = RegressionTree(TREES_DEPTH, labels, training_data, intensity_data)
+        tree = RegressionTree(TREES_DEPTH, files, training_data, intensity_data)
         regressor.append(tree)
-    with open('regressor.data', 'wb') as f:
+    with open('regressor2.data', 'wb') as f:
         pickle.dump(regressor, f)
     print(regressor[0].predictions[0])
     print('finished')
