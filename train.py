@@ -4,6 +4,7 @@ import os, sys
 import numpy as np
 import cv2, dlib
 import modules.util as util
+from modules.regression_tree import RegressionTree
 from multiprocessing import Pool
 from modules.procrustes import calculate_procrustes, mean_of_shapes
 from scipy.spatial.distance import cdist as distance
@@ -65,7 +66,9 @@ data = dict(p.map(first_estimation, images.items()))
 
 difference_data = {}
 intensity_data = {}
+labels = []
 for file_name, information in data.items():
+    labels.append(file_name)
     image = images[file_name]
     real_shape = annotations[file_name[:-4]] 
     difference_data[file_name] = (real_shape - information['estimation'])
@@ -74,6 +77,11 @@ for file_name, information in data.items():
         x = min(int(point[0]), image.shape[1] - 1)
         y = min(int(point[1]), image.shape[0] - 1)
         intensity_data[file_name].append(image.item(y, x))
+
+trees = []
+for i in range(NUMBER_OF_TREES):
+    print('training tree {}...'.format(i))
+    trees.append(RegressionTree(TREES_DEPTH, labels, difference_data, intensity_data))
 
 print(intensity_data)
 input('halt...')
