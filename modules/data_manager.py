@@ -23,7 +23,7 @@ __version__ = "1.0"
 __email__ = "abnersousanascimento@gmail.com"
 __status__ = "Development"
 import os
-
+import numpy as np
 
 def read_dataset(annotations_path):
     """Reads annotations files from dataset.
@@ -33,7 +33,7 @@ def read_dataset(annotations_path):
         to current path.
 
     Returns:
-        Dictionary with image file names as keys and an array of points as
+        Dictionary with image file names as keys and a numpy array of points as
         value for each image.
     """
     if not annotations_path:
@@ -50,6 +50,9 @@ def read_dataset(annotations_path):
                 [point_x, point_y] = line.split(" , ")
                 point = (float(point_x), float(point_y))
                 images_dictionary[image_file_name].append(point)
+            images_dictionary[image_file_name] = np.array(
+                images_dictionary[image_file_name]
+            )
     return images_dictionary
 
 

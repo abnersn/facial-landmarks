@@ -104,4 +104,6 @@ venv.bak/
 .mypy_cache/
 
 data
-img
+img_train
+img_test
+*/*.jpg

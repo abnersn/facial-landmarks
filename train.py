@@ -1,142 +1,57 @@
 #!/bin/python3.6
-from multiprocessing import Pool
-from time import time
 import pickle
 import os, sys
 import numpy as np
-import cv2
-from imutils import resize
-from scipy.spatial.distance import cdist as distance
-from modules.data_manager import read_dataset
-from modules.regression_tree import RegressionTree
-from modules.procrustes import find_theta, rotate
+import cv2, dlib
+import modules.util as util
+from multiprocessing import Pool
+from modules.procrustes import calculate_procrustes, mean_of_shapes
 
 
-IMAGE_PATH = './img'
-DATA_PATH = './data'
-SHAPES_MEAN_PATH = 'shapes_mean.data'
-REF_POINTS_PATH = 'ref_points.data'
+IMAGES_PATH = './img_train'
+ANNOTATIONS_PATH = './data'
 NUMBER_OF_TREES = 500
 TREES_DEPTH = 3
 NUMBER_OF_REGRESSORS = 1
 SHRINKAGE_FACTOR = 0.01
 
-# COLORS
-RED = [0, 0, 255]
-WHITE = [255, 255, 255]
+detector = dlib.get_frontal_face_detector()
+
+# Every image is loaded into the memory
+print('reading images from disk')
+images = util.read_images(IMAGES_PATH)
+print('reading annotations from disk')
+annotations = util.read_annotations(ANNOTATIONS_PATH)
+print('all data has been successfully loaded into memory')
+
+annotations = calculate_procrustes(annotations)
+shapes_mean = mean_of_shapes(annotations)
 
 
-def plot(image, shape):
-    radius = int(image.shape[0] * 0.005)
-    for point in shape:
-        draw_point = tuple(np.array(point).astype(int))
-        cv2.circle(image, draw_point, radius, WHITE, thickness=-1)
+def calculate_estimation(item):
+    file_name, image = item
+    faces = detector(image)
+    if len(faces) > 0:
+        top_left = (faces[0].left(), faces[0].top())
+        bottom_right = (faces[0].right(), faces[0].bottom())
+        middle = ((np.array(top_left) + np.array(bottom_right))
+                  / 2) + np.array([-10, 40])
+        scale = faces[0].width() * 0.3
+        estimation = (shapes_mean * scale) + middle
+        return (file_name, estimation)
+    else:
+        print('no face detected on {}'.format(file_name))
+        os.unlink(os.path.join(IMAGES_PATH, file_name))
+        return (file_name, [])
 
+p = Pool(4)
+estimations = p.map(calculate_estimation, images.items())
 
-def sort_points(quantity, centroid, radius):
-    angles_base = np.full([quantity, 1], 2 * np.pi)
-    angles_random = np.random.rand(quantity, 1)
-    angles = np.multiply(angles_base, angles_random)
-    x_coords = (np.multiply(np.cos(angles),
-                            np.random.rand(quantity, 1) * radius))
-    y_coords = (np.multiply(np.sin(angles),
-                            np.random.rand(quantity, 1) * radius))
-    return np.concatenate((x_coords, y_coords), axis=1) + centroid
+for file_name, estimation in estimations:
+    util.plot(images[file_name], estimation)
+    cv2.imshow('image', images[file_name])
+    cv2.waitKey(1000)
 
+input('halt...')
 
-def similarity_transform(shape_a, shape_b):
-    translation_matrix = (np.mean(shape_a, axis=0) - np.mean(shape_b, axis=0))
-    shape_a = shape_a - translation_matrix
-
-    product = np.multiply(shape_a, shape_b)
-    scale_factor = (np.sum(product) / np.sum(np.power(shape_a, 2)))
-    scaled_shape = shape_a * scale_factor
-
-    rotation_angle = find_theta(shape_b, scaled_shape)
-
-    return (scale_factor, rotation_angle, translation_matrix)
-
-
-def warp(points, shape_a, shape_b):
-    scale, angle, _ = similarity_transform(shape_b, shape_a)
-    warped = np.zeros(points.shape)
-    distances = distance(points, shape_a)
-    for i in range(len(points)):
-        closest_point = np.argmin(distances[i])
-        offset = points[i] - shape_a[closest_point]
-        offset = rotate(offset / scale, -angle)
-        warped[i] = shape_b[closest_point] + offset
-    return warped
-
-
-def get_shapes_mean():
-    with open(SHAPES_MEAN_PATH, 'rb') as f:
-        return pickle.load(f)
-
-
-def get_ref_points():
-    with open(REF_POINTS_PATH, 'rb') as f:
-        return pickle.load(f)
-
-def get_pixel_intensity(shape_data):
-    for file_name, points in shape_data.items():
-        img = cv2.imread(os.path.join(IMAGE_PATH, file_name + '.jpg'), 0)
-        intensity_data = []
-        for point in points:
-            # Fix points that exceed the image limits
-            row = point[1].astype(int) % img.shape[0]
-            col = point[0].astype(int) % img.shape[1]
-
-            # Appends pixel intensity to corresponding vector
-            intensity_data.append(img.item(row, col))
-
-        # Replaces original points information with intensities
-        shape_data[file_name] = intensity_data
-    return shape_data
-
-
-def process(name):
-    real_shape = np.array(dataset[name])
-    estimation = -1 * (training_data[name] - real_shape)
-    return warp(ref_points, estimation, real_shape)
-
-
-if __name__ == "__main__":
-    print('reading dataset...')
-    dataset = read_dataset(DATA_PATH)
-    with open('./training_data2.data', 'rb') as f:
-        training_data = pickle.load(f)
-        print(len(dataset.keys()))
-        print(len(training_data.keys()))
-    files = [file_name[:-4] for file_name in os.listdir(IMAGE_PATH)]
-
-    shapes_mean = get_shapes_mean()
-    ref_points = get_ref_points()
-
-    print('warping points...')
-    p = Pool(4)
-    intensity_data = p.map(process, files)
-    intensity_data = dict(zip(files, intensity_data))
-
-    print('capturing pixel intensity data...')
-    intensity_data = get_pixel_intensity(intensity_data)
-
-    # print('calculating estimations...')
-    # # Calculate first estimation for each image
-    # training_data = {}
-    # for file_name in files:
-    #     real_shape = np.array(dataset[file_name])
-    #     s, _, t = similarity_transform(real_shape, shapes_mean)
-    #     estimation = (shapes_mean / s) + t
-    #     training_data[file_name] = real_shape - estimation
-
-
-    regressor = []
-    for k in range(NUMBER_OF_TREES):
-        print('growing tree {}...'.format(k))
-        tree = RegressionTree(TREES_DEPTH, files, training_data, intensity_data)
-        regressor.append(tree)
-    with open('regressor2.data', 'wb') as f:
-        pickle.dump(regressor, f)
-    print(regressor[0].predictions[0])
-    print('finished')
+print(shapes_mean)
