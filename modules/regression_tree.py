@@ -82,12 +82,10 @@ class RegressionTree:
 
             nodes_queue.append(right)
             levels_queue.append(level + 1)
-            print(split_params)
-            print('On level {}, {} went left and {} went right'.format(level, len(left), len(right)))
         for leaf in nodes_queue:
-            print(len(leaf))
             if len(leaf) > 0:
                 self.predictions.append(self.__predict_node(leaf, training_data))
+        print(nodes_queue)
             
 
 
