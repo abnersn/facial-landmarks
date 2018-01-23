@@ -6,7 +6,7 @@ import cv2, dlib
 import modules.util as util
 from modules.regression_tree import RegressionTree
 from multiprocessing import Pool
-from modules.procrustes import calculate_procrustes, mean_of_shapes, scale_rms
+from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
@@ -60,16 +60,26 @@ data = dict(p.map(first_estimation, images.items()))
 print('showing images...')
 for file_name, information in data.items():
     image = images[file_name]
+
     estimation = data[file_name]['estimation']
-    translation_factor = np.mean(estimation, axis=0)
     real_shape = annotations[file_name[:-4]]
+
+    # Normalizes both shapes to current estimation's vector space
+    translation_factor = np.mean(estimation, axis=0)
     estimation -= translation_factor
     real_shape -= translation_factor
+    scale_factor = root_mean_square(estimation)
+    estimation /= scale_factor
+    real_shape /= scale_factor
+
+
     util.plot(image, real_shape)
     util.plot(image, estimation)
     cv2.imshow('image', resize(image, width=400))
     cv2.waitKey(300)
 input('halt...')
+
+##################################################
 
 difference_data = {}
 intensity_data = {}
