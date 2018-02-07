@@ -5,35 +5,48 @@ import numpy as np
 import cv2, dlib
 import modules.util as util
 from modules.regression_tree import RegressionTree
+from modules.face_model import ShapeModel
 from multiprocessing import Pool
 from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
-TRAINING_IMAGES = './dev_test'
-TESTING_IMAGES = './dev_test'
+TRAINING_IMAGES = './img_train'
+TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 50
-NUMBER_OF_REFPOINTS = 40
+NUMBER_OF_TREES = 500
+NUMBER_OF_REFPOINTS = 400
 TREES_DEPTH = 3
 NUMBER_OF_REGRESSORS = 1
 SHRINKAGE_FACTOR = 0.01
+NUMBER_OF_PARAMETERS = 25
+VERBOSE = True
 
 detector = dlib.get_frontal_face_detector()
 
-# Every image is loaded into the memory
-print('reading images from disk')
+def log(message):
+    if VERBOSE:
+        print(message)
+
+# Every image is loaded to the memory
+log('Reading images from disk...')
 images = util.read_images(TRAINING_IMAGES)
-print('reading annotations from disk')
+with open('images.bin', 'wb') as f:
+    pickle.dump(images, f)
+log('Reading annotations from disk...')
 annotations = util.read_annotations(ANNOTATIONS_PATH)
-print('all data has been successfully loaded into memory')
+with open('annotations.bin', 'wb') as f:
+    pickle.dump(annotations, f)
+log('All data has been successfully loaded into memory.')
 
-print('calculating mean of shapes...')
+log('Training face shape model...')
 normalized = calculate_procrustes(annotations)
-shapes_mean = mean_of_shapes(normalized)
+model = ShapeModel(NUMBER_OF_PARAMETERS, normalized)
+with open('model.bin', 'wb') as f:
+    pickle.dump(model, f)
 
-print('sorting sample points...')
-radius = np.max(distance(shapes_mean, shapes_mean)) / 2
+log('Sorting sample points...')
+radius = np.max(distance(model.base_shape, model.base_shape)) / 2
 points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
 
 def first_estimation(item):
@@ -45,26 +58,32 @@ def first_estimation(item):
         middle = ((np.array(top_left) + np.array(bottom_right)) / 2)
         scale = faces[0].width() * 0.3
         return (file_name, {
-            'estimation': (shapes_mean * scale) + middle,
+            'estimation': (model.base_shape * scale) + middle,
             'sample_points': (points * scale) + middle
         })
     else:
-        print('no face or too many faces detected on {}'.format(file_name))
+        log('No faces or too many faces detected on {}.'.format(file_name))
         os.unlink(os.path.join(TRAINING_IMAGES, file_name))
         return (file_name, None)
 
 p = Pool(4)
-print('calculating initial estimations...')
+log('Calculating initial estimations...')
 data = dict(p.map(first_estimation, images.items()))
+with open('data.bin', 'wb') as f:
+    pickle.dump(data, f)
 
-print('showing images...')
+input('halt...')
+log('Showing images...')
 for file_name, information in data.items():
     image = images[file_name]
 
     estimation = data[file_name]['estimation']
     real_shape = annotations[file_name[:-4]]
 
-    # Normalizes both shapes to current estimation's vector space
+    s, r, t = util.similarity_transform(real_shape, model.base_shape)
+    print(s, r, t)
+
+    # Normalizes both shapes to the vector space of the current estimation
     translation_factor = np.mean(estimation, axis=0)
     estimation -= translation_factor
     real_shape -= translation_factor
@@ -72,9 +91,13 @@ for file_name, information in data.items():
     estimation /= scale_factor
     real_shape /= scale_factor
 
+    params = model.retrieve_parameters(real_shape)
+    test = model.deform(params)
 
-    util.plot(image, real_shape)
-    util.plot(image, estimation)
+    test = util.rotate((test / s) + t, r)
+
+    util.plot(image, test)
+    # util.plot(image, estimation)
     cv2.imshow('image', resize(image, width=400))
     cv2.waitKey(300)
 input('halt...')
@@ -97,7 +120,7 @@ for file_name, information in data.items():
 
 trees = []
 for i in range(NUMBER_OF_TREES):
-    print('training tree {}...'.format(i))
+    log('training tree {}...'.format(i))
     trees.append(RegressionTree(TREES_DEPTH, labels, difference_data, intensity_data))
 
 for file_name in os.listdir(TESTING_IMAGES):

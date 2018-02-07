@@ -85,7 +85,6 @@ class RegressionTree:
         for leaf in nodes_queue:
             if len(leaf) > 0:
                 self.predictions.append(self.__predict_node(leaf, training_data))
-        print(nodes_queue)
             
 
 

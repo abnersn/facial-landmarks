@@ -107,3 +107,4 @@ data
 img_train
 img_test
 */*.jpg
+*.bin

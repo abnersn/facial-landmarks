@@ -52,11 +52,11 @@ def read_images(images_path, color=False):
         images[file_name] = img
     return images
 
-def plot(image, shape):
+def plot(image, shape, color=WHITE):
     size = int(image.shape[0] * 0.005)
     for point in shape:
         draw_point = tuple(np.array(point).astype(int))
-        cv2.circle(image, draw_point, size, WHITE, thickness=-1)
+        cv2.circle(image, draw_point, size, color, thickness=-1)
 
 def sort_points(number, center, radius):
     angles_base = np.full([number, 1], 2 * np.pi)

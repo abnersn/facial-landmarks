@@ -45,7 +45,7 @@ class ShapeModel:
         Returns:
             The scaled matrix
         """
-        rms = root_mean_square(matrix)
+        rms = self.__root_mean_square(matrix)
         return matrix / rms
 
     def __translate_mean(self, shape):
@@ -97,16 +97,16 @@ class ShapeModel:
         new_dataset = {}
         reference_key = next(iter(dataset))
         new_dataset[reference_key] = np.array(dataset[reference_key])
-        new_dataset[reference_key] = translate_mean(new_dataset[reference_key])
-        new_dataset[reference_key] = scale_rms(new_dataset[reference_key])
+        new_dataset[reference_key] = self.__translate_mean(new_dataset[reference_key])
+        new_dataset[reference_key] = self.__scale_rms(new_dataset[reference_key])
 
         for image_file, points_list in dataset.items():
-            current_mean = mean_of_shapes(new_dataset)
+            current_mean = self.__mean_of_faces(new_dataset)
             shape = np.array(points_list)
-            translated_shape = translate_mean(shape)
-            scaled_shape = scale_rms(translated_shape)
-            found_theta = find_theta(current_mean, shape)
-            rotated_shape = rotate(scaled_shape, found_theta)
+            translated_shape = self.__translate_mean(shape)
+            scaled_shape = self.__scale_rms(translated_shape)
+            found_theta = self.__find_theta(current_mean, shape)
+            rotated_shape = self.__rotate(scaled_shape, found_theta)
             new_dataset[image_file] = rotated_shape
 
         return new_dataset
@@ -135,15 +135,14 @@ class ShapeModel:
         Returns:
             The covariance matrix.
         """
-        mean = self.__mean_of_faces(dataset)
         sum_of_samples = np.zeros([194, 194])
         for points in dataset.values():
             sample = np.array(points)
-            sum_of_samples += np.dot((sample - mean), np.transpose(sample - mean))
+            sum_of_samples += np.dot((sample - self.base_shape), np.transpose(sample - self.base_shape))
         return sum_of_samples / (len(dataset) - 1)
 
 
-    def train_model(self, dataset):
+    def __train_model(self, dataset):
         """Performs the Principal Component Analysis over a
         high dimensional dataset.
 
@@ -162,7 +161,16 @@ class ShapeModel:
         e_values = e_values[0:self.number_of_params]
         e_vectors = e_vectors[:, 0:self.number_of_params]
 
-        return (e_values, e_vectors)
+        return e_vectors
+    
+    def deform(self, parameters):
+        return self.base_shape + np.dot(self.vectors, parameters)
 
-    def __init__(self, number_of_params):
+    def retrieve_parameters(self, shape):
+        difference = shape - self.base_shape
+        return np.dot(self.vectors.T, difference)
+
+    def __init__(self, number_of_params, dataset):
         self.number_of_params = number_of_params
+        self.base_shape = self.__mean_of_faces(dataset)
+        self.vectors = self.__train_model(dataset)
