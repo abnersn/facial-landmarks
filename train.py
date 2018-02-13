@@ -1,12 +1,12 @@
 #!/bin/python3.6
-import pickle
+import pickle, copy
 import os, sys
 import numpy as np
 import cv2, dlib
 import modules.util as util
 from modules.regression_tree import RegressionTree
 from modules.face_model import ShapeModel
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
@@ -18,7 +18,7 @@ NUMBER_OF_TREES = 5
 NUMBER_OF_REFPOINTS = 400
 TREES_DEPTH = 6
 NUMBER_OF_REGRESSORS = 1
-SHRINKAGE_FACTOR = 0.1
+SHRINKAGE_FACTOR = 0.15
 NUMBER_OF_PARAMETERS = 25
 VERBOSE = True
 LOAD = True
@@ -65,7 +65,7 @@ else:
     save('model.bin', model)
 
 log('Sorting sample points...')
-if LOAD:
+if not LOAD:
     points = load('points.bin')
 else:
     radius = np.max(distance(model.base_shape, model.base_shape)) / 2
@@ -130,6 +130,14 @@ for file_name, information in data.items():
     # Organize the regression data into a dictionary
     regression_data[file_name] = params_real_shape - params_estimation
 
+###############
+###############
+###############
+data_before = copy.deepcopy(data)
+###############
+###############
+###############
+
 trees = []
 for i in range(NUMBER_OF_TREES):
     log('Training tree {}...'.format(i))
@@ -156,7 +164,6 @@ for file_name, image in images.items():
 
     for tree in trees:
         index = tree.apply(test_data)
-        print(index, len(tree.predictions))
         delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
         params_estimation += delta_params
 
@@ -171,13 +178,23 @@ for file_name, image in images.items():
                                                  estimation,
                                                  data[file_name]['estimation'])
     count += 1
-    print('ok {}'.format(count))
+
 
 for file_name, image in images.items():
+    # BEFORE
+    color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    util.plot(color, data_before[file_name]['estimation'], util.BLUE)
+    util.plot(color, data_before[file_name]['sample_points'], util.GREEN)
+    color = resize(color, height=800)
+    cv2.imshow('BEFORE', color)
+
+    # AFTER
     color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     util.plot(color, data[file_name]['estimation'], util.BLUE)
     util.plot(color, data[file_name]['sample_points'], util.GREEN)
-    cv2.imshow('image', color)
+    color = resize(color, height=800)
+    cv2.imshow('AFTER', color)
+
     key = cv2.waitKey(0) & 0xFF
     if key == 27:
         break

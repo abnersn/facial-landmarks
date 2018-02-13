@@ -31,7 +31,10 @@ class RegressionTree:
         return int(param_index - (len(self.splits) + 1) / 2)
 
     def __predict_node(self, node, training_data):
-        prediction = np.zeros(training_data[node[0]].shape)
+        if len(node) == 0:
+            return np.zeros(self.shape)
+
+        prediction = np.zeros(self.shape)
         for label in node:
             prediction += training_data[label]
         return prediction / len(node)
@@ -55,19 +58,18 @@ class RegressionTree:
             for pair in pairs:
                 split_params = (pair[0], pair[1], threshold)
                 left, right = self.__split_node(node, split_params, split_data)
-                if len(left) > 0 and len(right) > 0:
-                    prediction_left = self.__predict_node(left, training_data)
-                    prediction_right = self.__predict_node(right, training_data)
-                    error = 0
-                    for label in left:
-                        diff = np.power(training_data[label] - prediction_left, 2)
-                        error += np.sum(diff)
-                    for label in right:
-                        diff = np.power(training_data[label] - prediction_right, 2)
-                        error += np.sum(diff)
-                    if error < smallest_error:
-                        smallest_error = error
-                        best_pair = pair
+                prediction_left = self.__predict_node(left, training_data)
+                prediction_right = self.__predict_node(right, training_data)
+                error = 0
+                for label in left:
+                    diff = np.power(training_data[label] - prediction_left, 2)
+                    error += np.sum(diff)
+                for label in right:
+                    diff = np.power(training_data[label] - prediction_right, 2)
+                    error += np.sum(diff)
+                if error < smallest_error:
+                    smallest_error = error
+                    best_pair = pair
         return (best_pair[0], best_pair[1], threshold)
 
 
@@ -95,5 +97,6 @@ class RegressionTree:
         self.depth = depth
         self.splits = []
         self.predictions = []
+        self.shape = training_data[list(labels)[0]].shape
 
         self.__grow(labels, training_data, split_data)
