@@ -14,13 +14,14 @@ from imutils import resize
 TRAINING_IMAGES = './img_train'
 TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 500
+NUMBER_OF_TREES = 5
 NUMBER_OF_REFPOINTS = 400
-TREES_DEPTH = 3
+TREES_DEPTH = 6
 NUMBER_OF_REGRESSORS = 1
-SHRINKAGE_FACTOR = 0.01
+SHRINKAGE_FACTOR = 0.1
 NUMBER_OF_PARAMETERS = 25
 VERBOSE = True
+LOAD = True
 
 detector = dlib.get_frontal_face_detector()
 
@@ -28,26 +29,48 @@ def log(message):
     if VERBOSE:
         print(message)
 
+def save(file_name, data):
+    log('Saving memory data to disk in file {}'.format(file_name))
+    with open(file_name, 'wb') as f:
+        pickle.dump(data, f)
+
+def load(file_name):
+    log('Loading file {}'.format(file_name))
+    with open(file_name, 'rb') as f:
+        return pickle.load(f)
+
 # Every image is loaded to the memory
 log('Reading images from disk...')
-images = util.read_images(TRAINING_IMAGES)
-with open('images.bin', 'wb') as f:
-    pickle.dump(images, f)
+if LOAD:
+    images = load('images.bin')
+else:
+    images = util.read_images(TRAINING_IMAGES)
+    save('images.bin', images)
+
 log('Reading annotations from disk...')
-annotations = util.read_annotations(ANNOTATIONS_PATH)
-with open('annotations.bin', 'wb') as f:
-    pickle.dump(annotations, f)
+if LOAD:
+    annotations = load('annotations.bin')
+else:
+    annotations = util.read_annotations(ANNOTATIONS_PATH)
+    save('annotations.bin', annotations)
+
 log('All data has been successfully loaded into memory.')
 
 log('Training face shape model...')
-normalized = calculate_procrustes(annotations)
-model = ShapeModel(NUMBER_OF_PARAMETERS, normalized)
-with open('model.bin', 'wb') as f:
-    pickle.dump(model, f)
+if LOAD:
+    model = load('model.bin')
+else:
+    normalized = calculate_procrustes(annotations)
+    model = ShapeModel(NUMBER_OF_PARAMETERS, normalized)
+    save('model.bin', model)
 
 log('Sorting sample points...')
-radius = np.max(distance(model.base_shape, model.base_shape)) / 2
-points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
+if LOAD:
+    points = load('points.bin')
+else:
+    radius = np.max(distance(model.base_shape, model.base_shape)) / 2
+    points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
+    save('points.bin', points)
 
 def first_estimation(item):
     file_name, image = item
@@ -68,83 +91,93 @@ def first_estimation(item):
 
 p = Pool(4)
 log('Calculating initial estimations...')
-data = dict(p.map(first_estimation, images.items()))
-with open('data.bin', 'wb') as f:
-    pickle.dump(data, f)
+if LOAD:
+    data = load('data.bin')
+else:
+    data = dict(p.map(first_estimation, images.items()))
+    save('data.bin', data)
 
-input('halt...')
-log('Showing images...')
+log('Preprocessing regression data...')
+intensity_data = {}
+regression_data = {}
+labels = data.keys()
 for file_name, information in data.items():
     image = images[file_name]
 
     estimation = data[file_name]['estimation']
     real_shape = annotations[file_name[:-4]]
 
-    s, r, t = util.similarity_transform(real_shape, model.base_shape)
-    print(s, r, t)
-
-    # Normalizes both shapes to the vector space of the current estimation
+    # Normalize shapes according to the current estimation
     translation_factor = np.mean(estimation, axis=0)
-    estimation -= translation_factor
-    real_shape -= translation_factor
-    scale_factor = root_mean_square(estimation)
-    estimation /= scale_factor
-    real_shape /= scale_factor
+    estimation_norm = estimation - translation_factor
+    real_shape_norm = real_shape - translation_factor
+    scale_factor = root_mean_square(estimation_norm)
+    estimation_norm /= scale_factor
+    real_shape_norm /= scale_factor
 
-    params = model.retrieve_parameters(real_shape)
-    test = model.deform(params)
+    # Calculate the parameters that transform the base shape into
+    # the normalized versions of both the estimation and the real shape
+    params_real_shape = model.retrieve_parameters(real_shape_norm)
+    params_estimation = model.retrieve_parameters(estimation_norm)
 
-    test = util.rotate((test / s) + t, r)
-
-    util.plot(image, test)
-    # util.plot(image, estimation)
-    cv2.imshow('image', resize(image, width=400))
-    cv2.waitKey(300)
-input('halt...')
-
-##################################################
-
-difference_data = {}
-intensity_data = {}
-labels = []
-for file_name, information in data.items():
-    labels.append(file_name)
-    image = images[file_name]
-    real_shape = annotations[file_name[:-4]] 
-    difference_data[file_name] = (real_shape - information['estimation'])
-    intensity_data[file_name] = []    
+    # Organize the intensity data into a dictionary
+    intensity_data[file_name] = []
     for point in information['sample_points']:
         x = min(int(point[0]), image.shape[1] - 1)
         y = min(int(point[1]), image.shape[0] - 1)
         intensity_data[file_name].append(image.item(y, x))
 
+    # Organize the regression data into a dictionary
+    regression_data[file_name] = params_real_shape - params_estimation
+
 trees = []
 for i in range(NUMBER_OF_TREES):
-    log('training tree {}...'.format(i))
-    trees.append(RegressionTree(TREES_DEPTH, labels, difference_data, intensity_data))
+    log('Training tree {}...'.format(i))
+    trees.append(RegressionTree(TREES_DEPTH, labels,
+                                regression_data, intensity_data))
 
-for file_name in os.listdir(TESTING_IMAGES):
-    img = cv2.imread(os.path.join(TESTING_IMAGES, file_name), 0)
-    faces = detector(img)
-    if len(faces) > 0:
-        top_left = (faces[0].left(), faces[0].top())
-        bottom_right = (faces[0].right(), faces[0].bottom())
-        cv2.rectangle(img, top_left, bottom_right, util.WHITE)
-        middle = ((np.array(top_left) + np.array(bottom_right)) / 2)
-        scale = faces[0].width() * 0.3
-        estimation = (shapes_mean * scale) + middle
-        sample_points = (points * scale) + middle
-        test_data = []
-        for point in sample_points:
-            x = min(int(point[0]), img.shape[1] - 1)
-            y = min(int(point[1]), img.shape[0] - 1)
-            test_data.append(img.item(y, x))
-        for tree in trees:
-            index = tree.apply(test_data)
-            delta = tree.predictions[index]
-            estimation = estimation + SHRINKAGE_FACTOR * delta
-    util.plot(img, estimation)
-    cv2.imshow('image', resize(img, width=400))
-    cv2.waitKey(300)
+log('Updating estimations and sample points...')
+count = 0
+for file_name, image in images.items():
+    # Normalize estimation
+    estimation = data[file_name]['estimation']
+    sample_points = data[file_name]['sample_points']
+    translation_factor = np.mean(estimation, axis=0)
+    estimation_norm = estimation - translation_factor
+    scale_factor = root_mean_square(estimation_norm)
+    estimation_norm /= scale_factor
+    params_estimation = model.retrieve_parameters(estimation_norm)
 
-input('halt...')
+    test_data = []
+    for point in sample_points:
+        x = min(int(point[0]), image.shape[1] - 1)
+        y = min(int(point[1]), image.shape[0] - 1)
+        test_data.append(image.item(y, x))
+
+    for tree in trees:
+        index = tree.apply(test_data)
+        print(index, len(tree.predictions))
+        delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
+        params_estimation += delta_params
+
+    # Update estimations
+    new_estimation = model.deform(params_estimation)
+    data[file_name]['estimation'] = (new_estimation
+                                     * scale_factor
+                                     + translation_factor)
+
+    # Update sample points
+    data[file_name]['sample_points'] = util.warp(sample_points,
+                                                 estimation,
+                                                 data[file_name]['estimation'])
+    count += 1
+    print('ok {}'.format(count))
+
+for file_name, image in images.items():
+    color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    util.plot(color, data[file_name]['estimation'], util.BLUE)
+    util.plot(color, data[file_name]['sample_points'], util.GREEN)
+    cv2.imshow('image', color)
+    key = cv2.waitKey(0) & 0xFF
+    if key == 27:
+        break

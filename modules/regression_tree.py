@@ -39,15 +39,18 @@ class RegressionTree:
 
     def __calc_split(self, node, training_data, split_data):
         smallest_error = float("inf")
+        max_tries = 200
+        it_count = 0
         best_pair = [0, 0]
-        while smallest_error == float("inf"):
+        while smallest_error == float("inf") and it_count < max_tries:
+            it_count += 1
             key = next(iter(split_data))
             points = np.arange(len(split_data[key]))
             np.random.shuffle(points)
             if len(points) % 2 != 0:
                 points = np.delete(points, 0)
             pairs = np.split(points, len(points) / 2)[0:20]
-            threshold = 40
+            threshold = np.random.randint(40, 200)
             best_pair = pairs[0]
             for pair in pairs:
                 split_params = (pair[0], pair[1], threshold)

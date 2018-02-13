@@ -44,9 +44,9 @@ log('Reading face model from disk...')
 with open('model.bin', 'rb') as f:
     model = pickle.load(f)
 
-log('Sorting sample points...')
-radius = np.max(distance(model.base_shape, model.base_shape)) / 2
-points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
+log('Reading points from disk...')
+with open('points.bin', 'rb') as f:
+    points = pickle.load(f)
 
 labels = data.keys()
 
@@ -100,9 +100,21 @@ for i in range(NUMBER_OF_TREES):
     log('training tree {}...'.format(i))
     trees.append(RegressionTree(TREES_DEPTH, labels, regression_data, intensity_data))
 
+# for t, tree in enumerate(trees):
+#     print('Testing tree {}'.format(t))
+#     for p, prediction in enumerate(tree.predictions):
+#         print('\tTesting predictor {}'.format(p))
+#         test_image = np.zeros([800, 800, 3])
+#         test_estimation = model.deform(prediction) * 200 + [400, 400]
+#         util.plot(test_image, test_estimation, [255, 255, 255])
+#         cv2.imshow('image', test_image)
+#         cv2.waitKey()
+# input('halt...')
+
 total_error_decrease = 0
 average_decrease_percent = 0
 total = len(os.listdir(TESTING_IMAGES))
+# index = 0
 for file_name in os.listdir(TESTING_IMAGES):
     real_shape = annotations[file_name[:-4]]
     img = cv2.imread(os.path.join(TESTING_IMAGES, file_name), 0)
@@ -129,10 +141,14 @@ for file_name in os.listdir(TESTING_IMAGES):
         estimation_norm /= scale_factor
         params_estimation = model.retrieve_parameters(estimation_norm)
 
+        total_index = 0
         for tree in trees:
             index = tree.apply(test_data)
+            total_index += index
             delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
             params_estimation += delta_params
+        # index += 1
+        print(total_index)
         
         test_estimation = model.deform(params_estimation)
         test_estimation = test_estimation * scale_factor + translation_factor
@@ -161,14 +177,14 @@ for file_name in os.listdir(TESTING_IMAGES):
         else:
             print('not ok')
 
-        util.plot(color, test_estimation, [255, 0 ,0])
-        util.plot(color, estimation, [25, 255,0])
-    cv2.imshow('image', resize(color, height=800))
-    key = cv2.waitKey() & 0xFF
-    if key == 27:
-        break
-    elif key == 110:
-        continue
+    #     util.plot(color, test_estimation, [255, 0 ,0])
+    #     util.plot(color, estimation, [25, 255,0])
+    # cv2.imshow('image', resize(color, height=800))
+    # key = cv2.waitKey() & 0xFF
+    # if key == 27:
+    #     break
+    # elif key == 110:
+    #     continue
 print('Total: ', total)
 print('Error decrease: ', total_error_decrease)
 print('Percentage: ', total_error_decrease/total * 100)
