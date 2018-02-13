@@ -6,7 +6,7 @@ import cv2, dlib
 import modules.util as util
 from modules.regression_tree import RegressionTree
 from modules.face_model import ShapeModel
-from multiprocessing import Pool, Process
+from multiprocessing import Pool, Process, cpu_count
 from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
@@ -24,7 +24,7 @@ VERBOSE = True
 LOAD = True
 
 detector = dlib.get_frontal_face_detector()
-
+print(cpu_count())
 def log(message):
     if VERBOSE:
         print(message)
