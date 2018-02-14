@@ -14,17 +14,18 @@ from imutils import resize
 TRAINING_IMAGES = './img_train'
 TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 5
+NUMBER_OF_TREES = 500
 NUMBER_OF_REFPOINTS = 400
 TREES_DEPTH = 6
 NUMBER_OF_REGRESSORS = 1
-SHRINKAGE_FACTOR = 0.15
+SHRINKAGE_FACTOR = 0.002
 NUMBER_OF_PARAMETERS = 25
 VERBOSE = True
 LOAD = True
+DISPLAY = False
 
 detector = dlib.get_frontal_face_detector()
-print(cpu_count())
+
 def log(message):
     if VERBOSE:
         print(message)
@@ -89,7 +90,7 @@ def first_estimation(item):
         os.unlink(os.path.join(TRAINING_IMAGES, file_name))
         return (file_name, None)
 
-p = Pool(4)
+p = Pool(cpu_count())
 log('Calculating initial estimations...')
 if LOAD:
     data = load('data.bin')
@@ -138,11 +139,15 @@ data_before = copy.deepcopy(data)
 ###############
 ###############
 
-trees = []
-for i in range(NUMBER_OF_TREES):
-    log('Training tree {}...'.format(i))
-    trees.append(RegressionTree(TREES_DEPTH, labels,
-                                regression_data, intensity_data))
+if LOAD:
+    trees = load('trees.bin')
+else:
+    trees = []
+    for i in range(NUMBER_OF_TREES):
+        log('Training tree {}...'.format(i))
+        trees.append(RegressionTree(TREES_DEPTH, labels,
+                                    regression_data, intensity_data))
+    save('trees.bin', trees)
 
 log('Updating estimations and sample points...')
 count = 0
@@ -164,6 +169,7 @@ for file_name, image in images.items():
 
     for tree in trees:
         index = tree.apply(test_data)
+        # print(index, len(tree.predictions))
         delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
         params_estimation += delta_params
 
@@ -179,22 +185,46 @@ for file_name, image in images.items():
                                                  data[file_name]['estimation'])
     count += 1
 
-
+log('Calculating error...')
+total = len(images.items())
+total_error_reduced = 0
+average_error_reduction = 0
 for file_name, image in images.items():
+    real_shape = annotations[file_name[:-4]]
     # BEFORE
-    color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    util.plot(color, data_before[file_name]['estimation'], util.BLUE)
-    util.plot(color, data_before[file_name]['sample_points'], util.GREEN)
-    color = resize(color, height=800)
-    cv2.imshow('BEFORE', color)
+    error_current_before = 0
+    for i, point in enumerate(data_before[file_name]['estimation']):
+        difference = point - real_shape[i]
+        square = np.power(difference, 2)
+        error_current_before += np.sum(square)
+    if DISPLAY:
+        color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        util.plot(color, data_before[file_name]['estimation'], util.BLUE)
+        util.plot(color, data_before[file_name]['sample_points'], util.GREEN)
+        color = resize(color, height=800)
+        cv2.imshow('BEFORE', color)
 
     # AFTER
-    color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    util.plot(color, data[file_name]['estimation'], util.BLUE)
-    util.plot(color, data[file_name]['sample_points'], util.GREEN)
-    color = resize(color, height=800)
-    cv2.imshow('AFTER', color)
+    error_current_after = 0
+    for i, point in enumerate(data[file_name]['estimation']):
+        difference = point - real_shape[i]
+        square = np.power(difference, 2)
+        error_current_after += np.sum(square)
+    
+    if error_current_after < error_current_before:
+        total_error_reduced += 1
+        average_error_reduction += 1 - error_current_after / error_current_before
+    if DISPLAY:
+        color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        util.plot(color, data[file_name]['estimation'], util.BLUE)
+        util.plot(color, data[file_name]['sample_points'], util.GREEN)
+        color = resize(color, height=800)
+        cv2.imshow('AFTER', color)
 
-    key = cv2.waitKey(0) & 0xFF
-    if key == 27:
-        break
+    # key = cv2.waitKey(0) & 0xFF
+    # if key == 27:
+    #     break
+print('{} of the samples had their errors reduced'.format(
+    100 * (total_error_reduced / total)))
+print('The average error reduction was of {}'.format(
+    100 * (average_error_reduction / total)))

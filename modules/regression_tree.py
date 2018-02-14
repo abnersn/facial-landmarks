@@ -20,9 +20,10 @@ class RegressionTree:
         param_index = 0
         split_params = self.splits[param_index]
         while param_index < (len(self.splits) + 1) / 2:
-            intensity_u = data[split_params[0]]
-            intensity_v = data[split_params[1]]
-            if abs(intensity_u - intensity_v) <= split_params[2]:
+            index_u, index_v, threshold = split_params
+            intensity_u = data[index_u]
+            intensity_v = data[index_v]
+            if abs(intensity_u - intensity_v) <= threshold:
                 param_index += param_index + 1
             else:
                 param_index += param_index + 2
@@ -76,7 +77,7 @@ class RegressionTree:
     def __grow(self, labels, training_data, split_data):
         nodes_queue = [labels]
         levels_queue = [0]
-        for _ in range(pow(2, self.depth) - 1):
+        for _ in range(pow(2, (self.depth - 1)) - 1):
             node = nodes_queue.pop(0)
             level = levels_queue.pop(0)
             split_params = self.__calc_split(node, training_data, split_data)
@@ -88,8 +89,7 @@ class RegressionTree:
             nodes_queue.append(right)
             levels_queue.append(level + 1)
         for leaf in nodes_queue:
-            if len(leaf) > 0:
-                self.predictions.append(self.__predict_node(leaf, training_data))
+            self.predictions.append(self.__predict_node(leaf, training_data))
             
 
 
