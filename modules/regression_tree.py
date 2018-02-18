@@ -42,11 +42,11 @@ class RegressionTree:
 
 
     def __calc_split(self, node, training_data, split_data):
-        smallest_error = float("inf")
+        maximum_diff = 0
         max_tries = 200
         it_count = 0
         best_pair = [0, 0]
-        while smallest_error == float("inf") and it_count < max_tries:
+        while maximum_diff == 0 and it_count < max_tries:
             it_count += 1
             key = next(iter(split_data))
             points = np.arange(len(split_data[key]))
@@ -62,14 +62,12 @@ class RegressionTree:
                 prediction_left = self.__predict_node(left, training_data)
                 prediction_right = self.__predict_node(right, training_data)
                 error = 0
-                for label in left:
-                    diff = np.power(training_data[label] - prediction_left, 2)
-                    error += np.sum(diff)
-                for label in right:
-                    diff = np.power(training_data[label] - prediction_right, 2)
-                    error += np.sum(diff)
-                if error < smallest_error:
-                    smallest_error = error
+                diff = np.dot(prediction_left, prediction_left.T) * len(left)
+                error += np.sum(diff)
+                diff = np.dot(prediction_right, prediction_right.T) * len(right)
+                error += np.sum(diff)
+                if error > maximum_diff:
+                    maximum_diff = error
                     best_pair = pair
         return (best_pair[0], best_pair[1], threshold)
 

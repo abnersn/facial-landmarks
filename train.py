@@ -14,15 +14,15 @@ from imutils import resize
 TRAINING_IMAGES = './img_train'
 TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 500
+NUMBER_OF_TREES = 20
 NUMBER_OF_REFPOINTS = 400
-TREES_DEPTH = 6
-NUMBER_OF_REGRESSORS = 1
-SHRINKAGE_FACTOR = 0.002
-NUMBER_OF_PARAMETERS = 25
+TREES_DEPTH = 4
+NUMBER_OF_REGRESSORS = 10
+SHRINKAGE_FACTOR = 0.1
+NUMBER_OF_PARAMETERS = 40
 VERBOSE = True
 LOAD = True
-DISPLAY = False
+DISPLAY = True
 
 detector = dlib.get_frontal_face_detector()
 
@@ -66,10 +66,10 @@ else:
     save('model.bin', model)
 
 log('Sorting sample points...')
-if not LOAD:
+if LOAD:
     points = load('points.bin')
 else:
-    radius = np.max(distance(model.base_shape, model.base_shape)) / 2
+    radius = np.max(distance(model.base_shape, model.base_shape)) / 1.7
     points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
     save('points.bin', points)
 
@@ -98,93 +98,118 @@ else:
     data = dict(p.map(first_estimation, images.items()))
     save('data.bin', data)
 
-log('Preprocessing regression data...')
-intensity_data = {}
-regression_data = {}
-labels = data.keys()
-for file_name, information in data.items():
-    image = images[file_name]
+regressors = []
+for r in range(NUMBER_OF_REGRESSORS):
+    log('Preprocessing regressor {} data...'.format(r + 1))
+    intensity_data = {}
+    regression_data = {}
+    labels = data.keys()
+    for file_name, information in data.items():
+        image = images[file_name]
 
-    estimation = data[file_name]['estimation']
-    real_shape = annotations[file_name[:-4]]
+        estimation = data[file_name]['estimation']
+        real_shape = annotations[file_name[:-4]]
 
-    # Normalize shapes according to the current estimation
-    translation_factor = np.mean(estimation, axis=0)
-    estimation_norm = estimation - translation_factor
-    real_shape_norm = real_shape - translation_factor
-    scale_factor = root_mean_square(estimation_norm)
-    estimation_norm /= scale_factor
-    real_shape_norm /= scale_factor
+        # Normalize shapes according to the current estimation
+        translation_factor = np.mean(estimation, axis=0)
+        estimation_norm = estimation - translation_factor
+        real_shape_norm = real_shape - translation_factor
+        scale_factor = root_mean_square(estimation_norm)
+        estimation_norm /= scale_factor
+        real_shape_norm /= scale_factor
 
-    # Calculate the parameters that transform the base shape into
-    # the normalized versions of both the estimation and the real shape
-    params_real_shape = model.retrieve_parameters(real_shape_norm)
-    params_estimation = model.retrieve_parameters(estimation_norm)
+        # Calculate the parameters that transform the base shape into
+        # the normalized versions of both the estimation and the real shape
+        params_real_shape = model.retrieve_parameters(real_shape_norm)
+        params_estimation = model.retrieve_parameters(estimation_norm)
 
-    # Organize the intensity data into a dictionary
-    intensity_data[file_name] = []
-    for point in information['sample_points']:
-        x = min(int(point[0]), image.shape[1] - 1)
-        y = min(int(point[1]), image.shape[0] - 1)
-        intensity_data[file_name].append(image.item(y, x))
+        # Organize the intensity data into a dictionary
+        intensity_data[file_name] = []
+        for point in information['sample_points']:
+            x = min(int(point[0]), image.shape[1] - 1)
+            y = min(int(point[1]), image.shape[0] - 1)
+            intensity_data[file_name].append(image.item(y, x))
 
-    # Organize the regression data into a dictionary
-    regression_data[file_name] = params_real_shape - params_estimation
+        # Organize the regression data into a dictionary
+        regression_data[file_name] = params_real_shape - params_estimation
 
-###############
-###############
-###############
-data_before = copy.deepcopy(data)
-###############
-###############
-###############
+    ###############
+    ###############
+    ###############
+    if r == 0:
+        data_before = copy.deepcopy(data)
+    ###############
+    ###############
+    ###############
 
-if LOAD:
-    trees = load('trees.bin')
-else:
     trees = []
     for i in range(NUMBER_OF_TREES):
-        log('Training tree {}...'.format(i))
-        trees.append(RegressionTree(TREES_DEPTH, labels,
-                                    regression_data, intensity_data))
-    save('trees.bin', trees)
+        log('Training tree {}, from regressor {}...'.format(i + 1, r + 1))
+        tree = RegressionTree(TREES_DEPTH, labels,
+                              regression_data, intensity_data)
+        trees.append(tree)
 
-log('Updating estimations and sample points...')
-count = 0
-for file_name, image in images.items():
-    # Normalize estimation
-    estimation = data[file_name]['estimation']
-    sample_points = data[file_name]['sample_points']
-    translation_factor = np.mean(estimation, axis=0)
-    estimation_norm = estimation - translation_factor
-    scale_factor = root_mean_square(estimation_norm)
-    estimation_norm /= scale_factor
-    params_estimation = model.retrieve_parameters(estimation_norm)
+        log('Updating estimations and sample points...')
+        count = 0
+        for file_name, image in images.items():
+            # Normalize estimation
+            estimation = data[file_name]['estimation']
+            sample_points = data[file_name]['sample_points']
+            translation_factor = np.mean(estimation, axis=0)
+            estimation_norm = estimation - translation_factor
+            scale_factor = root_mean_square(estimation_norm)
+            estimation_norm /= scale_factor
+            params_estimation = model.retrieve_parameters(estimation_norm)
 
-    test_data = []
-    for point in sample_points:
-        x = min(int(point[0]), image.shape[1] - 1)
-        y = min(int(point[1]), image.shape[0] - 1)
-        test_data.append(image.item(y, x))
+            test_data = []
+            for point in sample_points:
+                x = min(int(point[0]), image.shape[1] - 1)
+                y = min(int(point[1]), image.shape[0] - 1)
+                test_data.append(image.item(y, x))
 
-    for tree in trees:
-        index = tree.apply(test_data)
-        # print(index, len(tree.predictions))
-        delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
-        params_estimation += delta_params
+            index = tree.apply(test_data)
+            # print(index, len(tree.predictions))
+            delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
+            params_estimation += delta_params
 
-    # Update estimations
-    new_estimation = model.deform(params_estimation)
-    data[file_name]['estimation'] = (new_estimation
-                                     * scale_factor
-                                     + translation_factor)
+            # Update estimations
+            new_estimation = model.deform(params_estimation)
+            data[file_name]['estimation'] = (new_estimation
+                                            * scale_factor
+                                            + translation_factor)
 
-    # Update sample points
-    data[file_name]['sample_points'] = util.warp(sample_points,
-                                                 estimation,
-                                                 data[file_name]['estimation'])
-    count += 1
+            # Update sample points
+            data[file_name]['sample_points'] = util.warp(sample_points,
+                                                        estimation,
+                                                        data[file_name]['estimation'])
 
+            estimation = data[file_name]['estimation']
+            real_shape = annotations[file_name[:-4]]
+
+            # Normalize real shape to the current estimation
+            real_shape_norm = real_shape - translation_factor
+            real_shape_norm /= scale_factor
+
+            # Calculate the parameters that transform the base shape into
+            # the normalized versions of both the estimation and the real shape
+            params_real_shape = model.retrieve_parameters(real_shape_norm)
+            params_estimation = model.retrieve_parameters(estimation_norm)
+
+            # Update intensity data
+            intensity_data[file_name] = []
+            for point in information['sample_points']:
+                x = min(int(point[0]), image.shape[1] - 1)
+                y = min(int(point[1]), image.shape[0] - 1)
+                intensity_data[file_name].append(image.item(y, x))
+
+            # Update regression data
+            regression_data[file_name] = params_real_shape - params_estimation
+
+        count += 1
+    regressors.append(trees)
+save('regressors.bin', regressors)
+
+########################################################
 log('Calculating error...')
 total = len(images.items())
 total_error_reduced = 0
@@ -221,9 +246,10 @@ for file_name, image in images.items():
         color = resize(color, height=800)
         cv2.imshow('AFTER', color)
 
-    # key = cv2.waitKey(0) & 0xFF
-    # if key == 27:
-    #     break
+        key = cv2.waitKey(0) & 0xFF
+        if key == 27:
+            break
+
 print('{} of the samples had their errors reduced'.format(
     100 * (total_error_reduced / total)))
 print('The average error reduction was of {}'.format(
