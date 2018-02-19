@@ -43,33 +43,27 @@ class RegressionTree:
 
     def __calc_split(self, node, training_data, split_data):
         maximum_diff = 0
-        max_tries = 200
-        it_count = 0
-        best_pair = [0, 0]
-        while maximum_diff == 0 and it_count < max_tries:
-            it_count += 1
-            key = next(iter(split_data))
-            points = np.arange(len(split_data[key]))
-            np.random.shuffle(points)
-            if len(points) % 2 != 0:
-                points = np.delete(points, 0)
-            pairs = np.split(points, len(points) / 2)[0:20]
-            threshold = np.random.randint(40, 200)
-            best_pair = pairs[0]
-            for pair in pairs:
-                split_params = (pair[0], pair[1], threshold)
-                left, right = self.__split_node(node, split_params, split_data)
-                prediction_left = self.__predict_node(left, training_data)
-                prediction_right = self.__predict_node(right, training_data)
-                error = 0
-                diff = np.dot(prediction_left, prediction_left.T) * len(left)
-                error += np.sum(diff)
-                diff = np.dot(prediction_right, prediction_right.T) * len(right)
-                error += np.sum(diff)
-                if error > maximum_diff:
-                    maximum_diff = error
-                    best_pair = pair
-        return (best_pair[0], best_pair[1], threshold)
+        best_threshold = 0
+
+        point_u = self.pointsQueue.pop(0)
+        point_v = self.pointsQueue.pop(0)
+
+        thresholds = np.random.randint(self.minIntensity, self.maxIntensity, 20)
+
+        for threshold in thresholds:
+            split_params = (point_u, point_v, threshold)
+            left, right = self.__split_node(node, split_params, split_data)
+            prediction_left = self.__predict_node(left, training_data)
+            prediction_right = self.__predict_node(right, training_data)
+            diff = np.sum(
+                np.dot(prediction_left, prediction_left.T) * len(left)
+                + np.dot(prediction_right, prediction_right.T) * len(right)
+            )
+            if diff > maximum_diff:
+                maximum_diff = diff
+                best_threshold = threshold
+
+        return (point_u, point_v, best_threshold)
 
 
     def __grow(self, labels, training_data, split_data):
@@ -96,5 +90,13 @@ class RegressionTree:
         self.splits = []
         self.predictions = []
         self.shape = training_data[list(labels)[0]].shape
+
+        self.minIntensity = np.min(list(split_data.values()))
+        self.maxIntensity = np.max(list(split_data.values()))
+        
+        key = next(iter(split_data))
+        numberOfPoints = len(split_data[key])
+        self.pointsQueue = list(np.arange(numberOfPoints))
+        np.random.shuffle(self.pointsQueue)
 
         self.__grow(labels, training_data, split_data)

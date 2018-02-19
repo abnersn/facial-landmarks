@@ -14,10 +14,10 @@ from imutils import resize
 TRAINING_IMAGES = './img_train'
 TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 20
+NUMBER_OF_TREES = 3
 NUMBER_OF_REFPOINTS = 400
 TREES_DEPTH = 4
-NUMBER_OF_REGRESSORS = 10
+NUMBER_OF_REGRESSORS = 2
 SHRINKAGE_FACTOR = 0.1
 NUMBER_OF_PARAMETERS = 40
 VERBOSE = True
@@ -89,6 +89,9 @@ def first_estimation(item):
         log('No faces or too many faces detected on {}.'.format(file_name))
         os.unlink(os.path.join(TRAINING_IMAGES, file_name))
         return (file_name, None)
+
+def update_data(item):
+    file_name, image = item
 
 p = Pool(cpu_count())
 log('Calculating initial estimations...')
@@ -207,7 +210,7 @@ for r in range(NUMBER_OF_REGRESSORS):
 
         count += 1
     regressors.append(trees)
-save('regressors.bin', regressors)
+save('regressors_{}_{}.bin'.format(NUMBER_OF_TREES, NUMBER_OF_REGRESSORS), regressors)
 
 ########################################################
 log('Calculating error...')

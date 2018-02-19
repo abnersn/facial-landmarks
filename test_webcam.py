@@ -17,8 +17,8 @@ IMAGE_PATH = './img'
 DATA_PATH = './data'
 SHAPES_MODEL = 'model.bin'
 REF_POINTS_PATH = 'points.bin'
-REGRESSOR_PATH = 'regressors.bin'
-SHRINKAGE_FACTOR = 0.5
+REGRESSOR_PATH = 'regressors_30_10.bin'
+SHRINKAGE_FACTOR = 0.05
 
 def plot(image, shape):
     radius = int(image.shape[0] * 0.005)
