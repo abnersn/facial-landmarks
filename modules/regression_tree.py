@@ -8,13 +8,16 @@ class RegressionTree:
         left = []
         right = []
         for label in node:
-            intensity_data = data[label]['intensity_data']
-            intensity_u = intensity_data[split_params[0]]
-            intensity_v = intensity_data[split_params[1]]
-            if abs(intensity_u - intensity_v) > split_params[2]:
-                left.append(label)
-            else:
-                right.append(label)
+            try:
+                intensity_data = data[label]['intensity_data']
+                intensity_u = intensity_data[split_params[0]]
+                intensity_v = intensity_data[split_params[1]]
+                if abs(intensity_u - intensity_v) > split_params[2]:
+                    left.append(label)
+                else:
+                    right.append(label)
+            except IndexError:
+                print(split_params)
         return (left, right)
 
 
@@ -85,8 +88,27 @@ class RegressionTree:
             levels_queue.append(level + 1)
         for leaf in nodes_queue:
             self.predictions.append(self.__predict_node(leaf, data))
-            
+    
 
+    def __grow_fern(self, labels, data):
+        nodes_queue = [labels]
+        levels_queue = [0]
+        for _ in range(pow(2, (self.depth - 1)) - 1):
+            node = nodes_queue.pop(0)
+            level = levels_queue.pop(0)
+            if len(self.splits) != level + 1:
+                split_params = self.__calc_split(node, data)
+                self.splits.append(split_params)
+            
+            split_params = self.splits[level]
+            left, right = self.__split_node(node, split_params, data)
+            nodes_queue.append(left)
+            levels_queue.append(level + 1)
+
+            nodes_queue.append(right)
+            levels_queue.append(level + 1)
+        for leaf in nodes_queue:
+            self.predictions.append(self.__predict_node(leaf, data))
 
     def __init__(self, depth, labels, data):
         self.depth = depth
@@ -98,7 +120,7 @@ class RegressionTree:
         sample = data[key]
 
         self.shape = sample['regression_data'].shape
-        self.number_of_points = len(sample['intensity_data'])
+        self.number_of_points = len(sample['intensity_data']) - 1
 
         # Retrieve both the minimum and maximum intensity difference value
         self.pairsQueue = []
@@ -113,6 +135,7 @@ class RegressionTree:
             while aux_sum < sorted_random:
                 aux_sum += roulette[chosen_index]
                 chosen_index += 1
+            chosen_index = chosen_index % self.number_of_points
             self.pairsQueue.append([index, chosen_index])
 
-        self.__grow(labels, data)
+        self.__grow_fern(labels, data)

@@ -4,6 +4,7 @@ import os, sys
 import numpy as np
 import cv2, dlib
 import modules.util as util
+from time import sleep
 from modules.regression_tree import RegressionTree
 from modules.face_model import ShapeModel
 from multiprocessing import Pool, Process, cpu_count
@@ -14,11 +15,11 @@ from imutils import resize
 TRAINING_IMAGES = './img_train'
 TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 20
+NUMBER_OF_TREES = 50
 NUMBER_OF_REFPOINTS = 400
 TREES_DEPTH = 4
 NUMBER_OF_REGRESSORS = 10
-SHRINKAGE_FACTOR = 0.1
+SHRINKAGE_FACTOR = 0.05
 NUMBER_OF_PARAMETERS = 40
 VERBOSE = True
 LOAD = True
@@ -220,6 +221,7 @@ for r in range(NUMBER_OF_REGRESSORS):
         for key in data.keys():
             data[key]['tree'] = tree
 
+        sleep(2)
         log('Updating estimations and sample points...')
         data = dict(p.map(update_data, data.items()))
 
