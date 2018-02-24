@@ -15,12 +15,12 @@ from imutils import resize
 TRAINING_IMAGES = './img_train'
 TESTING_IMAGES = './img_test'
 ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 50
+NUMBER_OF_TREES = 500
 NUMBER_OF_REFPOINTS = 400
-TREES_DEPTH = 4
+TREES_DEPTH = 5
 NUMBER_OF_REGRESSORS = 10
-SHRINKAGE_FACTOR = 0.05
-NUMBER_OF_PARAMETERS = 40
+SHRINKAGE_FACTOR = 0.02
+NUMBER_OF_PARAMETERS = 120
 VERBOSE = True
 LOAD = True
 DISPLAY = True
@@ -71,7 +71,7 @@ log('Sorting sample points...')
 if LOAD:
     points = load('points.bin')
 else:
-    radius = np.max(distance(model.base_shape, model.base_shape)) / 1.7
+    radius = np.max(distance(model.base_shape, model.base_shape)) / 2
     points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
     save('points.bin', points)
 
@@ -94,8 +94,8 @@ def first_estimation(item):
         # Collect pixel intensity data
         intensity_data = []
         for point in sample_points:
-            x = min(int(point[0]), image.shape[1] - 1)
-            y = min(int(point[1]), image.shape[0] - 1)
+            x = max(min(int(point[0]), image.shape[1] - 1), 0)
+            y = max(min(int(point[1]), image.shape[0] - 1), 0)
             intensity_data.append(image.item(y, x))
         
         # Retrieve real shape and normalize it to the estimation
@@ -181,8 +181,8 @@ def update_data(item):
     # Calculate new intensity data
     new_intensity_data = []
     for point in new_sample_points:
-        x = min(int(point[0]), image.shape[1] - 1)
-        y = min(int(point[1]), image.shape[0] - 1)
+        x = max(min(int(point[0]), image.shape[1] - 1), 0)
+        y = max(min(int(point[1]), image.shape[0] - 1), 0)
         new_intensity_data.append(image.item(y, x))
 
     # Update regression data
@@ -221,7 +221,7 @@ for r in range(NUMBER_OF_REGRESSORS):
         for key in data.keys():
             data[key]['tree'] = tree
 
-        sleep(2)
+        # sleep(1)
         log('Updating estimations and sample points...')
         data = dict(p.map(update_data, data.items()))
 

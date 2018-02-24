@@ -125,8 +125,8 @@ class RegressionTree:
         # Retrieve both the minimum and maximum intensity difference value
         self.pairsQueue = []
         distances = distance(sample['sample_points'], sample['sample_points'])
-        # Sort 20 random points
-        points_u_indexes = np.random.randint(0, self.number_of_points, 20)
+        # Sort 100 random points
+        points_u_indexes = np.random.randint(0, self.number_of_points, 200)
         for index in points_u_indexes:
             roulette = distances[index] / np.sum(distances[index])
             sorted_random = np.random.rand()
@@ -138,4 +138,4 @@ class RegressionTree:
             chosen_index = chosen_index % self.number_of_points
             self.pairsQueue.append([index, chosen_index])
 
-        self.__grow_fern(labels, data)
+        self.__grow(labels, data)

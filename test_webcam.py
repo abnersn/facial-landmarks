@@ -17,8 +17,8 @@ IMAGE_PATH = './img'
 DATA_PATH = './data'
 SHAPES_MODEL = 'model.bin'
 REF_POINTS_PATH = 'points.bin'
-REGRESSOR_PATH = 'regressors_50_10.bin'
-SHRINKAGE_FACTOR = 0.05
+REGRESSOR_PATH = 'regressors_500_10.bin'
+SHRINKAGE_FACTOR = 0.02
 
 def plot(image, shape):
     radius = int(image.shape[0] * 0.005)
@@ -54,7 +54,7 @@ while True:
         test_sample_points = (sample_points * scale) + middle
 
         # plot(img, test_sample_points)
-
+        
         for trees in regressors:
             translation_factor = np.mean(test_estimation, axis=0)
             estimation_norm = test_estimation - translation_factor
@@ -68,7 +68,7 @@ while True:
                 x = min(int(point[0]), img.shape[1] - 1)
                 y = min(int(point[1]), img.shape[0] - 1)
                 test_data.append(img.item(y, x))
-            
+
             for tree in trees:
                 index = tree.apply(test_data)
                 delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
