@@ -53,7 +53,7 @@ while True:
         test_estimation = (model.base_shape * scale) + middle
         test_sample_points = (sample_points * scale) + middle
 
-        # plot(img, test_sample_points)
+        # plot(img, test_estimation)
         
         for trees in regressors:
             translation_factor = np.mean(test_estimation, axis=0)
@@ -65,8 +65,8 @@ while True:
 
             test_data = []
             for point in test_sample_points:
-                x = min(int(point[0]), img.shape[1] - 1)
-                y = min(int(point[1]), img.shape[0] - 1)
+                x = max(min(int(point[0]), img.shape[1] - 1), 0)
+                y = max(min(int(point[1]), img.shape[0] - 1), 0)
                 test_data.append(img.item(y, x))
 
             for tree in trees:
@@ -85,6 +85,7 @@ while True:
 
         # plot(img, test_sample_points)
         plot(img, test_estimation)
+        print(test_estimation)
 
     img = resize(img, height=800)
     cv2.imshow('frame', img)

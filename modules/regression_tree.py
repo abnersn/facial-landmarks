@@ -119,7 +119,7 @@ class RegressionTree:
         key = next(iter(data))
         sample = data[key]
 
-        self.shape = sample['regression_data'].shape
+        self.shape = np.array(sample['regression_data']).shape
         self.number_of_points = len(sample['intensity_data']) - 1
 
         # Retrieve both the minimum and maximum intensity difference value
