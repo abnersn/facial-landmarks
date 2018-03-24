@@ -20,6 +20,7 @@ parser.add_argument('--regressors', default=10, help='Number of regressors to tr
 parser.add_argument('--trees', default=500, help='Number of trees.')
 parser.add_argument('--depth', default=5, help='Trees depth.')
 parser.add_argument('--shrinkage', default=0.001, help='Shrinkage factor.')
+parser.add_argument('--points', default=5, help='Number of sample point per shape point.')
 parser.add_argument('--parameters', default=80, help='Number of parameters to considerer for the PCA.')
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
 args = parser.parse_args()
@@ -37,8 +38,16 @@ model = ShapeModel(args.parameters, calculate_procrustes(dict(
     [(file_name, data['annotations']) for file_name, data in dataset.items()]
 )))
 
+log('sorting sample points')
+radius = 0.60 * root_mean_square(model.base_shape)
+sample_points = np.zeros([len(model.base_shape), args.points, 2])
+for i, point in enumerate(model.base_shape):
+    sample_points[i] = util.sort_points(args.points, point, radius)
+sample_points = sample_points.flatten().reshape([args.points * len(model.base_shape), 2])
+
 def first_estimation(item):
     file_name, data = item
+    image = data['image']
     top_left = data['top_left']
     width = data['width']
     height = data['height']
@@ -47,11 +56,36 @@ def first_estimation(item):
     scale = 0.3 * width
 
     data['estimation'] = model.base_shape * scale + center
+    data['sample_points'] = sample_points * scale + center
+    data['intensity_data'] = []
+    for point in sample_points:
+        # try:
+        x = int(round(point[0]))
+        y = int(round(point[1]))
+        intensity = image.item(x, y)
+        data['intensity_data'].append(intensity)
+        # except expression as identifier:
+        #     data['intensity_data'].append(-1)
     return (file_name, data)
 
 log('calculating first estimations')
 p = Pool(cpu_count())
-dataset = dict(p.map(dataset.items(), ))
+dataset = dict(p.map(first_estimation, dataset.items()))
+
+for file_name, data in dataset.items():
+    image = data['image']
+    estimation = data['estimation']
+    sample_points = data['sample_points']
+    intensity_data = data['intensity_data']
+    for i, point in enumerate(sample_points):
+        x = int(round(point[0]))
+        y = int(round(point[1]))
+        cv2.PutText(image, str(intensity_data[i]), (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, [200,200,200])
+        
+    util.plot(image, estimation)
+    # util.plot(image, sample_points)
+    cv2.imshow('image', resize(image, height=500))
+    cv2.waitKey(300)
 
 def update_data(item):
     file_name, information = item
