@@ -26,12 +26,13 @@ for annotation_file in os.listdir(args.annotations_path):
     path = os.path.join(args.annotations_path, annotation_file)
     with open(path, 'r') as csv_file:
         image_file = csv_file.readline().rstrip()
-        points = []
-        for line in csv_file:
-            [point_x, point_y] = line.split(' , ')
-            point = (float(point_x), float(point_y))
-            points.append(point)
-        annotations[image_file] = np.array(points)
+        if image_file in images.keys():
+            points = []
+            for line in csv_file:
+                [point_x, point_y] = line.split(' , ')
+                point = (float(point_x), float(point_y))
+                points.append(point)
+            annotations[image_file] = np.array(points)
 
 detector = dlib.get_frontal_face_detector()
 def process(item):

@@ -4,20 +4,17 @@ from scipy.spatial.distance import cdist as distance
 class RegressionTree:
 
     @staticmethod
-    def __split_node(node, split_params, data):
+    def __split_node(node, index, point_u, point_v, threshold, data):
         left = []
         right = []
         for label in node:
-            try:
-                intensity_data = data[label]['intensity_data']
-                intensity_u = intensity_data[split_params[0]]
-                intensity_v = intensity_data[split_params[1]]
-                if abs(intensity_u - intensity_v) > split_params[2]:
-                    left.append(label)
-                else:
-                    right.append(label)
-            except IndexError:
-                print(split_params)
+            intensity_data = data[label]['intensity_data']
+            intensity_u = intensity_data[index][point_u]
+            intensity_v = intensity_data[index][point_v]
+            if abs(intensity_u - intensity_v) > threshold:
+                left.append(label)
+            else:
+                right.append(label)
         return (left, right)
 
 
@@ -25,9 +22,9 @@ class RegressionTree:
         param_index = 0
         split_params = self.splits[param_index]
         while param_index < (len(self.splits) + 1) / 2:
-            index_u, index_v, threshold = split_params
-            intensity_u = data[index_u]
-            intensity_v = data[index_v]
+            index, index_u, index_v, threshold = split_params
+            intensity_u = data[index][index_u]
+            intensity_v = data[index][index_v]
             if abs(intensity_u - intensity_v) <= threshold:
                 param_index += param_index + 1
             else:
@@ -49,7 +46,7 @@ class RegressionTree:
 
     def __calc_split(self, node, data):
 
-        point_u, point_v = self.pairsQueue.pop(0)
+        index, point_u, point_v = self.pairsQueue.pop(0)
 
         thresholds = np.random.randint(0, 255, 20)
 
@@ -57,8 +54,7 @@ class RegressionTree:
         best_threshold = 0
 
         for threshold in thresholds:
-            split_params = (point_u, point_v, threshold)
-            left, right = self.__split_node(node, split_params, data)
+            left, right = self.__split_node(node, index, point_u, point_v, threshold, data)
             prediction_left = self.__predict_node(left, data)
             prediction_right = self.__predict_node(right, data)
             diff = np.sum(
@@ -69,7 +65,7 @@ class RegressionTree:
                 maximum_diff = diff
                 best_threshold = threshold
 
-        return (point_u, point_v, best_threshold)
+        return (index, point_u, point_v, best_threshold)
 
 
     def __grow(self, labels, data):
@@ -80,7 +76,8 @@ class RegressionTree:
             level = levels_queue.pop(0)
             split_params = self.__calc_split(node, data)
             self.splits.append(split_params)
-            left, right = self.__split_node(node, split_params, data)
+            index, point_u, point_v, threshold = split_params
+            left, right = self.__split_node(node, index, point_u, point_v, threshold, data)
             nodes_queue.append(left)
             levels_queue.append(level + 1)
 
@@ -122,20 +119,14 @@ class RegressionTree:
         self.shape = np.array(sample['regression_data']).shape
         self.number_of_points = len(sample['intensity_data']) - 1
 
-        # Retrieve both the minimum and maximum intensity difference value
         self.pairsQueue = []
-        distances = distance(sample['sample_points'], sample['sample_points'])
-        # Sort 100 random points
-        points_u_indexes = np.random.randint(0, self.number_of_points, 200)
-        for index in points_u_indexes:
-            roulette = distances[index] / np.sum(distances[index])
-            sorted_random = np.random.rand()
-            aux_sum = 0
-            chosen_index = 0
-            while aux_sum < sorted_random:
-                aux_sum += roulette[chosen_index]
-                chosen_index += 1
-            chosen_index = chosen_index % self.number_of_points
-            self.pairsQueue.append([index, chosen_index])
+        indexes = np.arange(len(sample['sample_points']))
+        points_per_landmark = len(sample['sample_points'][0])
+        np.random.shuffle(indexes)
+        for index in indexes:
+            sub_indexes = np.arange(points_per_landmark)
+            np.random.shuffle(sub_indexes)
+            self.pairsQueue.append((index, sub_indexes[0], sub_indexes[1]))
+
 
         self.__grow(labels, data)

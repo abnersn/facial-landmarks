@@ -16,12 +16,12 @@ from imutils import resize
 
 parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
 parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
-parser.add_argument('--regressors', default=10, help='Number of regressors to train.')
-parser.add_argument('--trees', default=500, help='Number of trees.')
-parser.add_argument('--depth', default=5, help='Trees depth.')
-parser.add_argument('--shrinkage', default=0.001, help='Shrinkage factor.')
-parser.add_argument('--points', default=5, help='Number of sample point per shape point.')
-parser.add_argument('--parameters', default=80, help='Number of parameters to considerer for the PCA.')
+parser.add_argument('--regressors', default=3, help='Number of regressors to train.', type=int)
+parser.add_argument('--trees', default=3, help='Number of trees.', type=int)
+parser.add_argument('--depth', default=4, help='Trees depth.', type=int)
+parser.add_argument('--shrinkage', default=0.001, help='Shrinkage factor.', type=float)
+parser.add_argument('--points', default=3, help='Number of sample point per shape point.', type=int)
+parser.add_argument('--parameters', default=80, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
 args = parser.parse_args()
 
@@ -43,7 +43,6 @@ radius = 0.60 * root_mean_square(model.base_shape)
 sample_points = np.zeros([len(model.base_shape), args.points, 2])
 for i, point in enumerate(model.base_shape):
     sample_points[i] = util.sort_points(args.points, point, radius)
-sample_points = sample_points.flatten().reshape([args.points * len(model.base_shape), 2])
 
 def first_estimation(item):
     file_name, data = item
@@ -56,48 +55,45 @@ def first_estimation(item):
     scale = 0.3 * width
 
     data['estimation'] = model.base_shape * scale + center
-    data['sample_points'] = sample_points * scale + center
+    data['sample_points'] = []
+    for group in sample_points:
+        data['sample_points'].append(group * scale + center)
     data['intensity_data'] = []
-    for point in sample_points:
-        # try:
-        x = int(round(point[0]))
-        y = int(round(point[1]))
-        intensity = image.item(x, y)
-        data['intensity_data'].append(intensity)
-        # except expression as identifier:
-        #     data['intensity_data'].append(-1)
+
+    for group in data['sample_points']:
+        intensity_group = []
+        for point in group:
+            y, x = np.array(point).astype(int)
+            try:
+                intensity = image.item(x, y)
+                intensity_group.append(intensity)
+            except IndexError:
+                intensity_group.append(-1)
+        data['intensity_data'].append(intensity_group)
+
+    real_shape_norm = data['annotations'] - center
+    real_shape_norm /= root_mean_square(data['estimation'])
+    params_real_shape = model.retrieve_parameters(real_shape_norm)
+    params_estimation = model.retrieve_parameters(model.base_shape)
+    data['regression_data'] = data['annotations'] - data['estimation']
     return (file_name, data)
 
 log('calculating first estimations')
 p = Pool(cpu_count())
 dataset = dict(p.map(first_estimation, dataset.items()))
 
-for file_name, data in dataset.items():
-    image = data['image']
-    estimation = data['estimation']
-    sample_points = data['sample_points']
-    intensity_data = data['intensity_data']
-    for i, point in enumerate(sample_points):
-        x = int(round(point[0]))
-        y = int(round(point[1]))
-        cv2.PutText(image, str(intensity_data[i]), (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, [200,200,200])
-        
-    util.plot(image, estimation)
-    # util.plot(image, sample_points)
-    cv2.imshow('image', resize(image, height=500))
-    cv2.waitKey(300)
+def warp2(shape_a, shape_b, groups):
+    diff = shape_a - shape_b
+    return np.array([group + diff[i] for i, group in enumerate(groups)])
 
 def update_data(item):
-    file_name, information = item
+    file_name, data = item
 
-    estimation = information['estimation']
-    sample_points = information['sample_points']
-    intensity_data = information['intensity_data']
-    tree = information['tree']
-
-    # Retrieve the real shape and image
-    real_shape = annotations[file_name[:-4]]
-    image = images[file_name]
+    estimation = data['estimation']
+    intensity_data = data['intensity_data']
+    real_shape = data['annotations']
+    image = data['image']
+    tree = data['tree']
 
     # Normalize the coordinates of the estimation in regards to translation
     translation_factor = np.mean(estimation, axis=0)
@@ -111,7 +107,7 @@ def update_data(item):
     params_estimation = model.retrieve_parameters(estimation_norm)
 
     index = tree.apply(intensity_data)
-    delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
+    delta_params = tree.predictions[index] * args.shrinkage
     params_estimation += delta_params
 
     # Calculate new estimation
@@ -119,8 +115,22 @@ def update_data(item):
     new_estimation = (new_estimation_norm * scale_factor + translation_factor)
 
     # Calculate new sample points
-    new_sample_points = util.warp(sample_points, estimation, new_estimation)
+    new_sample_points = []
+    for group in warp2(new_estimation_norm, model.base_shape, sample_points):
+        new_sample_points.append(group * scale_factor + translation_factor)
 
+    new_intensity_data = []
+    for group in new_sample_points:
+        intensity_group = []
+        for point in group:
+            y, x = np.array(point).astype(int)
+            try:
+                intensity = image.item(x, y)
+                intensity_group.append(intensity)
+            except IndexError:
+                intensity_group.append(-1)
+        new_intensity_data.append(intensity_group)
+    
     # Normalize real shape to the current estimation
     real_shape_norm = real_shape - translation_factor
     real_shape_norm /= scale_factor
@@ -130,98 +140,56 @@ def update_data(item):
     params_real_shape = model.retrieve_parameters(real_shape_norm)
     params_estimation = model.retrieve_parameters(new_estimation_norm)
 
-    # Calculate new intensity data
-    new_intensity_data = []
-    for point in new_sample_points:
-        x = max(min(int(point[0]), image.shape[1] - 1), 0)
-        y = max(min(int(point[1]), image.shape[0] - 1), 0)
-        new_intensity_data.append(image.item(y, x))
-
     # Update regression data
     new_regression_data = params_real_shape - params_estimation
 
     return (file_name, {
+        'image': image,
+        'tree': tree,
+        'annotations': real_shape,
         'estimation': new_estimation,
         'sample_points': new_sample_points,
         'intensity_data': new_intensity_data,
         'regression_data': new_regression_data
     })
 
-
 p = Pool(cpu_count())
 
 regressors = []
-for r in range(NUMBER_OF_REGRESSORS):
-    log('Processing regressor {}...'.format(r + 1))
-    labels = data.keys()
-
-    ###############
-    ###############
-    ###############
-    if r == 0:
-        data_before = copy.deepcopy(data)
-    ###############
-    ###############
-    ###############
+for r in range(args.regressors):
+    log('processing regressor {}...'.format(r + 1))
+    labels = dataset.keys()
 
     regressor = []
-    for i in range(NUMBER_OF_TREES):
-        log('Training tree {}, from regressor {}...'.format(i + 1, r + 1))
-        tree = RegressionTree(TREES_DEPTH, labels, data)
+    for i in range(args.trees):
+        log('training tree {}, from regressor {}...'.format(i + 1, r + 1))
+        tree = RegressionTree(args.depth, labels, dataset)
 
         regressor.append(tree)
-        for key in data.keys():
-            data[key]['tree'] = tree
+        for key in dataset.keys():
+            dataset[key]['tree'] = tree
 
-        # sleep(1)
-        log('Updating estimations and sample points...')
-        data = dict(p.map(update_data, data.items()))
+        log('updating estimations and sample points...')
+        dataset = map(update_data, dataset.items())
+        dataset = dict(dataset)
 
     regressors.append(regressor)
-save('regressors_{}_{}.bin'.format(NUMBER_OF_TREES, NUMBER_OF_REGRESSORS), regressors)
 
-########################################################
-log('Calculating error...')
-total = len(images.items())
-total_error_reduced = 0
-average_error_reduction = 0
-for file_name, image in images.items():
-    real_shape = annotations[file_name[:-4]]
-    # BEFORE
-    error_current_before = 0
-    for i, point in enumerate(data_before[file_name]['estimation']):
-        difference = point - real_shape[i]
-        square = np.power(difference, 2)
-        error_current_before += np.sum(square)
-    if DISPLAY:
-        color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-        util.plot(color, data_before[file_name]['estimation'], util.BLUE)
-        util.plot(color, data_before[file_name]['sample_points'], util.GREEN)
-        color = resize(color, height=800)
-        cv2.imshow('BEFORE', color)
-
-    # AFTER
-    error_current_after = 0
-    for i, point in enumerate(data[file_name]['estimation']):
-        difference = point - real_shape[i]
-        square = np.power(difference, 2)
-        error_current_after += np.sum(square)
-    
-    if error_current_after < error_current_before:
-        total_error_reduced += 1
-        average_error_reduction += 1 - error_current_after / error_current_before
-    if DISPLAY:
-        color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-        util.plot(color, data[file_name]['estimation'], util.BLUE)
-        util.plot(color, data[file_name]['sample_points'], util.GREEN)
-        color = resize(color, height=800)
-        cv2.imshow('AFTER', color)
-
-        key = cv2.waitKey(0) & 0xFF
-        if key == 27:
-            break
-
-print('{} of the samples had their errors reduced'.format(
-    100 * (total_error_reduced / total)))
-print('The average error reduction was of {}'.format(
-    100 * (average_error_reduction / total)))
+for file_name, data in dataset.items():
+    image = data['image']
+    estimation = data['estimation']
+    sample_points = data['sample_points']
+    sample_points = np.array(sample_points).flatten().reshape([args.points * len(model.base_shape), 2])
+    intensity_data = data['intensity_data']
+    size = int(image.shape[0] * 0.005)
+    for i, point in enumerate(sample_points):
+        intensity = intensity_data[i]
+        if intensity != -1:
+            draw_point = tuple(np.array(point).astype(int))
+            cv2.circle(image, draw_point, size, [intensity, intensity, intensity], thickness=2)
+        
+    util.plot(image, estimation)
+    cv2.imshow('image', resize(image, height=500))
+    k = cv2.waitKey(0) & 0xFF
+    if k == 27:
+        sys.exit(0)
