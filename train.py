@@ -1,7 +1,9 @@
 #!/bin/python3.6
-import pickle, copy
+import argparse
+import pickle, dill
 import os, sys
 import numpy as np
+import datetime
 import cv2, dlib
 import modules.util as util
 from time import sleep
@@ -12,128 +14,44 @@ from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_s
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
-TRAINING_IMAGES = './img_train'
-TESTING_IMAGES = './img_test'
-ANNOTATIONS_PATH = './data'
-NUMBER_OF_TREES = 500
-NUMBER_OF_REFPOINTS = 400
-TREES_DEPTH = 5
-NUMBER_OF_REGRESSORS = 10
-SHRINKAGE_FACTOR = 0.02
-NUMBER_OF_PARAMETERS = 120
-VERBOSE = True
-LOAD = True
-DISPLAY = True
-FONT = cv2.FONT_HERSHEY_SIMPLEX
-
-detector = dlib.get_frontal_face_detector()
+parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
+parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
+parser.add_argument('--regressors', default=10, help='Number of regressors to train.')
+parser.add_argument('--trees', default=500, help='Number of trees.')
+parser.add_argument('--depth', default=5, help='Trees depth.')
+parser.add_argument('--shrinkage', default=0.001, help='Shrinkage factor.')
+parser.add_argument('--parameters', default=80, help='Number of parameters to considerer for the PCA.')
+parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
+args = parser.parse_args()
 
 def log(message):
-    if VERBOSE:
+    if(args.verbose):
         print(message)
 
-def save(file_name, data):
-    log('Saving memory data to disk in file {}'.format(file_name))
-    with open(file_name, 'wb') as f:
-        pickle.dump(data, f)
+log('reading dataset')
+with open(args.dataset_path, 'rb') as f:
+    dataset = dill.load(f)
 
-def load(file_name):
-    log('Loading file {}'.format(file_name))
-    with open(file_name, 'rb') as f:
-        return pickle.load(f)
-
-# Every image is loaded to the memory
-log('Reading images from disk...')
-if LOAD:
-    images = load('images.bin')
-else:
-    images = util.read_images(TRAINING_IMAGES)
-    save('images.bin', images)
-
-log('Reading annotations from disk...')
-if LOAD:
-    annotations = load('annotations.bin')
-else:
-    annotations = util.read_annotations(ANNOTATIONS_PATH)
-    save('annotations.bin', annotations)
-
-log('All data has been successfully loaded into memory.')
-
-log('Training face shape model...')
-if LOAD:
-    model = load('model.bin')
-else:
-    normalized = calculate_procrustes(annotations)
-    model = ShapeModel(NUMBER_OF_PARAMETERS, normalized)
-    save('model.bin', model)
-
-log('Sorting sample points...')
-if LOAD:
-    points = load('points.bin')
-else:
-    radius = np.max(distance(model.base_shape, model.base_shape)) / 2
-    points = util.sort_points(NUMBER_OF_REFPOINTS, 0, radius)
-    save('points.bin', points)
+log('calculating PCA model')
+model = ShapeModel(args.parameters, calculate_procrustes(dict(
+    [(file_name, data['annotations']) for file_name, data in dataset.items()]
+)))
 
 def first_estimation(item):
-    file_name, image = item
-    faces = detector(image)
-    if len(faces) == 1:
+    file_name, data = item
+    top_left = data['top_left']
+    width = data['width']
+    height = data['height']
 
-        # Calculate the translation and scale factors of the first estimation
-        top_left = (faces[0].left(), faces[0].top())
-        bottom_right = (faces[0].right(), faces[0].bottom())
-        translation_factor = ((np.array(top_left) + np.array(bottom_right)) / 2)
-        scale_factor = faces[0].width() * 0.3
+    center = top_left + [width / 2, height / 2]
+    scale = 0.3 * width
 
-        # Scale and translate the estimation and sample points according
-        # to the calculated factors
-        estimation = (model.base_shape * scale_factor) + translation_factor
-        sample_points = (points * scale_factor) + translation_factor
+    data['estimation'] = model.base_shape * scale + center
+    return (file_name, data)
 
-        # Collect pixel intensity data
-        intensity_data = []
-        for point in sample_points:
-            x = max(min(int(point[0]), image.shape[1] - 1), 0)
-            y = max(min(int(point[1]), image.shape[0] - 1), 0)
-            intensity_data.append(image.item(y, x))
-        
-        # Retrieve real shape and normalize it to the estimation
-        real_shape = annotations[file_name[:-4]]
-        real_shape_norm = real_shape - translation_factor
-        real_shape_norm /= scale_factor
-
-        # The normalized initial estimation is just the base shape
-        estimation_norm = model.base_shape
-
-        # Calculate the parameters that transform the base shape into
-        # the normalized versions of both the estimation and the real shape
-        params_real_shape = model.retrieve_parameters(real_shape_norm)
-        params_estimation = model.retrieve_parameters(estimation_norm)
-
-        # Calculate the regression data
-        regression_data = params_real_shape - params_estimation
-
-        return (file_name, {
-            'estimation': estimation,
-            'sample_points': sample_points,
-            'intensity_data': intensity_data,
-            'regression_data': regression_data
-        })
-    else:
-        log('No faces or too many faces detected on {}.'.format(file_name))
-        os.unlink(os.path.join(TRAINING_IMAGES, file_name))
-        return (file_name, None)
-
-
+log('calculating first estimations')
 p = Pool(cpu_count())
-log('Calculating initial data...')
-if LOAD:
-    data = load('data.bin')
-else:
-    data = dict(p.map(first_estimation, images.items()))
-    save('data.bin', data)
-
+dataset = dict(p.map(dataset.items(), ))
 
 def update_data(item):
     file_name, information = item
