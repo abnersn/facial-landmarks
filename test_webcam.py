@@ -13,13 +13,6 @@ from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_s
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
-IMAGE_PATH = './img'
-DATA_PATH = './data'
-SHAPES_MODEL = 'model.bin'
-REF_POINTS_PATH = 'points.bin'
-REGRESSOR_PATH = 'regressors_500_10.bin'
-SHRINKAGE_FACTOR = 0.02
-
 def plot(image, shape):
     radius = int(image.shape[0] * 0.005)
     for i, point in enumerate(shape):
@@ -29,14 +22,11 @@ def plot(image, shape):
 cap = cv2.VideoCapture(0)
 detector = dlib.get_frontal_face_detector()
 
-with open(SHAPES_MODEL, 'rb') as f:
-    model = pickle.load(f)
-
-with open(REF_POINTS_PATH, 'rb') as f:
-    sample_points = pickle.load(f)
-
-with open(REGRESSOR_PATH, 'rb') as f:
+with open('reg.bin', 'rb') as f:
     regressors = pickle.load(f)
+
+with open('model.bin', 'rb') as f:
+    model = pickle.load(f)
 
 #305917477_2.jpg
 

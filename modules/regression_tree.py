@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import cdist as distance
+from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 
 class RegressionTree:
 
@@ -11,7 +12,7 @@ class RegressionTree:
             intensity_data = data[label]['intensity_data']
             intensity_u = intensity_data[index][point_u]
             intensity_v = intensity_data[index][point_v]
-            if abs(intensity_u - intensity_v) > threshold:
+            if intensity_u - intensity_v > threshold:
                 left.append(label)
             else:
                 right.append(label)
@@ -21,17 +22,18 @@ class RegressionTree:
     def apply(self, data):
         param_index = 0
         split_params = self.splits[param_index]
-        while param_index < (len(self.splits) + 1) / 2:
+        stop_index = (2 ** (self.depth - 1) - 1)
+        while param_index < stop_index:
             index, index_u, index_v, threshold = split_params
             intensity_u = data[index][index_u]
             intensity_v = data[index][index_v]
-            if abs(intensity_u - intensity_v) <= threshold:
-                param_index += param_index + 1
+            if intensity_u - intensity_v <= threshold:
+                param_index = param_index * 2 + 1
             else:
-                param_index += param_index + 2
-            if param_index < (len(self.splits) + 1) / 2:
+                param_index = param_index * 2 + 2
+            if param_index < stop_index:
                 split_params = self.splits[param_index]
-        return int(param_index - (len(self.splits) + 1) / 2)
+        return param_index
 
     def __predict_node(self, node, data):
         if len(node) == 0:
@@ -48,7 +50,7 @@ class RegressionTree:
 
         index, point_u, point_v = self.pairsQueue.pop(0)
 
-        thresholds = np.random.randint(0, 255, 20)
+        thresholds = np.random.randint(-70, 70, 20)
 
         maximum_diff = -float("inf")
         best_threshold = 0
@@ -57,10 +59,9 @@ class RegressionTree:
             left, right = self.__split_node(node, index, point_u, point_v, threshold, data)
             prediction_left = self.__predict_node(left, data)
             prediction_right = self.__predict_node(right, data)
-            diff = np.sum(
-                np.dot(prediction_left, prediction_left.T) * len(left)
-                + np.dot(prediction_right, prediction_right.T) * len(right)
-            )
+            diff = (len(left) * np.sum(np.power(prediction_left, 2))
+                    + len(right) * np.sum(np.power(prediction_right, 2)))
+
             if diff > maximum_diff:
                 maximum_diff = diff
                 best_threshold = threshold
@@ -71,7 +72,7 @@ class RegressionTree:
     def __grow(self, labels, data):
         nodes_queue = [labels]
         levels_queue = [0]
-        for _ in range(pow(2, (self.depth - 1)) - 1):
+        for _ in range((2 ** self.depth) - 1):
             node = nodes_queue.pop(0)
             level = levels_queue.pop(0)
             split_params = self.__calc_split(node, data)
@@ -87,30 +88,11 @@ class RegressionTree:
             self.predictions.append(self.__predict_node(leaf, data))
     
 
-    def __grow_fern(self, labels, data):
-        nodes_queue = [labels]
-        levels_queue = [0]
-        for _ in range(pow(2, (self.depth - 1)) - 1):
-            node = nodes_queue.pop(0)
-            level = levels_queue.pop(0)
-            if len(self.splits) != level + 1:
-                split_params = self.__calc_split(node, data)
-                self.splits.append(split_params)
-            
-            split_params = self.splits[level]
-            left, right = self.__split_node(node, split_params, data)
-            nodes_queue.append(left)
-            levels_queue.append(level + 1)
-
-            nodes_queue.append(right)
-            levels_queue.append(level + 1)
-        for leaf in nodes_queue:
-            self.predictions.append(self.__predict_node(leaf, data))
-
-    def __init__(self, depth, labels, data):
+    def __init__(self, depth, labels, data, model):
         self.depth = depth
         self.splits = []
         self.predictions = []
+        self.model = model
 
         # A key to help getting a sample from the data
         key = next(iter(data))
