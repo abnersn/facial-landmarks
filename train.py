@@ -19,7 +19,7 @@ parser.add_argument('dataset_path', help='Directory to load the pre processed da
 parser.add_argument('--regressors', default=10, help='Number of regressors to train.', type=int)
 parser.add_argument('--trees', default=500, help='Number of trees.', type=int)
 parser.add_argument('--depth', default=3, help='Trees depth.', type=int)
-parser.add_argument('--shrinkage', default=0.01, help='Shrinkage factor.', type=float)
+parser.add_argument('--shrinkage', default=0.1, help='Shrinkage factor.', type=float)
 parser.add_argument('--points', default=3, help='Number of sample point per shape point.', type=int)
 parser.add_argument('--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
@@ -57,14 +57,16 @@ def first_estimation(item):
     width = data['width']
     height = data['height']
 
-    center = top_left + [width / 2, height / 2]
+    pivot = top_left + [width / 2, height / 2]
     scale = 0.3 * width
 
-    data['estimation'] = model.base_shape * scale + center
-    data['first_estimation'] = model.base_shape * scale + center
+    data['pivot'] = pivot
+    data['scale'] = scale
+    data['estimation'] = model.base_shape * scale + pivot
+    data['first_estimation'] = model.base_shape * scale + pivot
     data['sample_points'] = []
     for group in sample_points:
-        data['sample_points'].append(group * scale + center)
+        data['sample_points'].append(group * scale + pivot)
     data['intensity_data'] = []
 
     for group in data['sample_points']:
@@ -78,54 +80,58 @@ def first_estimation(item):
                 intensity_group.append(-1)
         data['intensity_data'].append(intensity_group)
 
-    real_shape_norm = data['annotations'] - center
+    real_shape_norm = data['annotations'] - pivot
     real_shape_norm /= scale
     params_real_shape = model.retrieve_parameters(real_shape_norm)
+    data['params_real_shape'] = params_real_shape
     params_estimation = model.retrieve_parameters(model.base_shape)
     data['regression_data'] = params_real_shape - params_estimation
     return (file_name, data)
 
 log('calculating first estimations')
-p = Pool(cpu_count())
+p = Pool(4)
 dataset = dict(p.map(first_estimation, dataset.items()))
 
-def warp2(shape_a, shape_b, groups):
+def warp(shape_a, shape_b, groups):
     diff = shape_a - shape_b
     return np.array([group + diff[i] for i, group in enumerate(groups)])
 
 def update_data(item):
     file_name, data = item
 
-    estimation = data['estimation']
-    first_estimation = data['first_estimation']
-    intensity_data = data['intensity_data']
-    real_shape = data['annotations']
-    image = data['image']
-    tree = data['tree']
+    # Calculate the tree prediction
+    index = data['tree'].apply(data['intensity_data'])
+    prediction = data['tree'].predictions[index]
 
-    # Normalize the coordinates of the estimation in regards to translation
-    translation_factor = np.mean(estimation, axis=0)
-    estimation_norm = estimation - translation_factor
-    
-    # Normalize the coordinates of the estimation in regards to scale
-    scale_factor = root_mean_square(estimation_norm)
-    estimation_norm /= scale_factor
+    # Normalize the estimation
+    estimation_norm = ((data['estimation']
+                        - data['pivot'])
+                        / data['scale'])
 
-    # Calculate the params that transform the model into the estimation normalized
+    # Displace the parameters according to the prediction
     params_estimation = model.retrieve_parameters(estimation_norm)
+    params_estimation += prediction * args.shrinkage
 
-    index = tree.apply(intensity_data)
-    delta_params = tree.predictions[index] * args.shrinkage
-    params_estimation += delta_params
+    # Update regression data
+    new_regression_data = data['params_real_shape'] - params_estimation
+    data['regression_data'] = new_regression_data
 
-    # Calculate new estimation
+    # Calculate the new estimation with the displaced parameters
     new_estimation_norm = model.deform(params_estimation)
-    new_estimation = (new_estimation_norm * scale_factor + translation_factor)
 
-    # Calculate new sample points
+    # Take the estimation back into position
+    new_estimation = (new_estimation_norm
+                      * data['scale']
+                      + data['pivot'])
+    
+    # Update data
+    data['estimation'] = new_estimation
+
+    # Warp the points 
     new_sample_points = []
-    for group in warp2(new_estimation_norm, model.base_shape, sample_points):
-        new_sample_points.append(group * scale_factor + translation_factor)
+    for group in warp(new_estimation_norm, model.base_shape, sample_points):
+        new_sample_points.append(group * data['scale'] + data['pivot'])
+    data['sample_points'] = new_sample_points
 
     new_intensity_data = []
     for group in new_sample_points:
@@ -133,36 +139,16 @@ def update_data(item):
         for point in group:
             y, x = np.array(point).astype(int)
             try:
-                intensity = image.item(x, y)
+                intensity = data['image'].item(x, y)
                 intensity_group.append(intensity)
             except IndexError:
                 intensity_group.append(-1)
         new_intensity_data.append(intensity_group)
-    
-    # Normalize real shape to the current estimation
-    real_shape_norm = real_shape - translation_factor
-    real_shape_norm /= scale_factor
+    data['intensity_data'] = new_intensity_data
 
-    # Calculate the parameters that transform the base shape into
-    # the normalized versions of both the estimation and the real shape
-    params_real_shape = model.retrieve_parameters(real_shape_norm)
-    params_estimation = model.retrieve_parameters(new_estimation_norm)
+    return (file_name, data)
 
-    # Update regression data
-    new_regression_data = params_real_shape - params_estimation
-
-    return (file_name, {
-        'image': image,
-        'tree': tree,
-        'first_estimation': first_estimation,
-        'annotations': real_shape,
-        'estimation': new_estimation,
-        'sample_points': new_sample_points,
-        'intensity_data': new_intensity_data,
-        'regression_data': new_regression_data
-    })
-
-p = Pool(cpu_count())
+p = Pool(4)
 
 regressors = []
 for r in range(args.regressors):

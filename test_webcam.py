@@ -1,7 +1,7 @@
 import pickle
 import copy
 import os
-import sys
+import sys, copy
 import numpy as np
 import cv2
 import dlib
@@ -13,12 +13,6 @@ from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_s
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
-def plot(image, shape):
-    radius = int(image.shape[0] * 0.005)
-    for i, point in enumerate(shape):
-        draw_point = tuple(np.array(point).astype(int))
-        cv2.circle(image, draw_point, radius, [255, 255, 255], thickness=-1)
-
 cap = cv2.VideoCapture(0)
 detector = dlib.get_frontal_face_detector()
 
@@ -28,7 +22,12 @@ with open('reg.bin', 'rb') as f:
 with open('model.bin', 'rb') as f:
     model = pickle.load(f)
 
-#305917477_2.jpg
+with open('sample_points.bin', 'rb') as f:
+    sample_points = pickle.load(f)
+
+def warp2(shape_a, shape_b, groups):
+    diff = shape_a - shape_b
+    return np.array([group + diff[i] for i, group in enumerate(groups)])
 
 while True:
     _, img = cap.read()
@@ -37,48 +36,46 @@ while True:
     for face in faces:
         top_left = (face.left(), face.top())
         bottom_right = (face.right(), face.bottom())
-        middle = ((np.array(top_left) + np.array(bottom_right)) / 2)
+        pivot = ((np.array(top_left) + np.array(bottom_right)) / 2)
         scale = face.width() * 0.3
 
-        test_estimation = (model.base_shape * scale) + middle
-        test_sample_points = (sample_points * scale) + middle
-
-        # plot(img, test_estimation)
+        test_estimation = model.base_shape * scale + pivot
+        test_sample_points = sample_points * scale + pivot
         
-        for trees in regressors:
-            translation_factor = np.mean(test_estimation, axis=0)
-            estimation_norm = test_estimation - translation_factor
-            scale_factor = root_mean_square(estimation_norm)
-            estimation_norm /= scale_factor
+        for regressor in regressors:
 
-            params_estimation = model.retrieve_parameters(estimation_norm)
+            new_img = copy.copy(img)
+            util.plot(new_img, test_estimation)
+            new_img = resize(new_img, height=800)
+            cv2.imshow('frame', new_img)
+            cv2.waitKey(0)
 
-            test_data = []
-            for point in test_sample_points:
-                x = max(min(int(point[0]), img.shape[1] - 1), 0)
-                y = max(min(int(point[1]), img.shape[0] - 1), 0)
-                test_data.append(img.item(y, x))
+            intensity_data = []
+            for group in test_sample_points:
+                intensity_group = []
+                for point in group:
+                    y, x = np.array(point).astype(int)
+                    try:
+                        intensity = img.item(x, y)
+                        intensity_group.append(intensity)
+                    except IndexError:
+                        intensity_group.append(-1)
+                intensity_data.append(intensity_group)
 
-            for tree in trees:
-                index = tree.apply(test_data)
-                delta_params = tree.predictions[index] * SHRINKAGE_FACTOR
-                params_estimation += delta_params
+            test_estimation_norm = (test_estimation - pivot) / scale
+            params_estimation = model.retrieve_parameters(test_estimation_norm)
+            print(params_estimation)
+            for tree in regressor:
+                index = tree.apply(intensity_data)
+                delta_params = tree.predictions[index]
+                params_estimation += delta_params * 0.01
+            print(params_estimation)
             new_estimation = model.deform(params_estimation)
-            new_estimation = (new_estimation * scale_factor
-                              + translation_factor)
+            new_estimation = (new_estimation * scale + pivot)
 
-            # Update sample points
-            test_sample_points = util.warp(test_sample_points,
-                                           test_estimation,
-                                           new_estimation)
+            # Update sample points and estimation
+            test_sample_points = warp2(test_estimation, new_estimation, test_sample_points)
             test_estimation = new_estimation
 
-        # plot(img, test_sample_points)
-        plot(img, test_estimation)
-        print(test_estimation)
-
-    img = resize(img, height=800)
-    cv2.imshow('frame', img)
-    key = cv2.waitKey(30) & 0xFF
-    if key == 27:
-        break
+        
+        # util.plot(new_img, test_sample_points.flatten().reshape([3 * len(model.base_shape), 2]))
