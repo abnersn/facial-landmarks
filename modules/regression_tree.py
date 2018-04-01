@@ -22,8 +22,7 @@ class RegressionTree:
     def apply(self, data):
         param_index = 0
         split_params = self.splits[param_index]
-        stop_index = (2 ** (self.depth - 1) - 1)
-        while param_index < stop_index:
+        while param_index < len(self.splits):
             index, index_u, index_v, threshold = split_params
             intensity_u = data[index][index_u]
             intensity_v = data[index][index_v]
@@ -31,9 +30,9 @@ class RegressionTree:
                 param_index = param_index * 2 + 1
             else:
                 param_index = param_index * 2 + 2
-            if param_index < stop_index:
+            if param_index < len(self.splits):
                 split_params = self.splits[param_index]
-        return param_index
+        return param_index - (2 ** self.depth)
 
     def __predict_node(self, node, data):
         if len(node) == 0:
