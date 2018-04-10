@@ -1,7 +1,7 @@
 import pickle
 import copy
 import os
-import sys, copy
+import sys
 import numpy as np
 import cv2
 import dlib
@@ -25,9 +25,15 @@ with open('model.bin', 'rb') as f:
 with open('sample_points.bin', 'rb') as f:
     sample_points = pickle.load(f)
 
-def warp2(shape_a, shape_b, groups):
-    diff = shape_a - shape_b
-    return np.array([group + diff[i] for i, group in enumerate(groups)])
+def warp(shape_a, shape_b, groups):
+    scale, angle, _ = util.similarity_transform(shape_b, shape_a)
+    new_groups = np.zeros(groups.shape)
+    for i, group in enumerate(groups):
+        for j, point in enumerate(group):
+            offset = point - shape_a[i]
+            offset = util.rotate(offset / scale, -angle)
+            new_groups[i][j] = shape_b[i] - offset
+    return new_groups
 
 while True:
     _, img = cap.read()
@@ -39,17 +45,11 @@ while True:
         pivot = ((np.array(top_left) + np.array(bottom_right)) / 2)
         scale = face.width() * 0.3
 
+        first_estimation = model.base_shape * scale + pivot
         test_estimation = model.base_shape * scale + pivot
         test_sample_points = sample_points * scale + pivot
         
         for regressor in regressors:
-
-            new_img = copy.copy(img)
-            util.plot(new_img, test_estimation)
-            new_img = resize(new_img, height=800)
-            cv2.imshow('frame', new_img)
-            cv2.waitKey(0)
-
             intensity_data = []
             for group in test_sample_points:
                 intensity_group = []
@@ -64,18 +64,22 @@ while True:
 
             test_estimation_norm = (test_estimation - pivot) / scale
             params_estimation = model.retrieve_parameters(test_estimation_norm)
-            print(params_estimation)
             for tree in regressor:
                 index = tree.apply(intensity_data)
                 delta_params = tree.predictions[index]
-                params_estimation += delta_params * 0.01
-            print(params_estimation)
+                params_estimation += delta_params * 0.1
             new_estimation = model.deform(params_estimation)
             new_estimation = (new_estimation * scale + pivot)
 
             # Update sample points and estimation
-            test_sample_points = warp2(test_estimation, new_estimation, test_sample_points)
+            test_sample_points = warp(test_estimation, new_estimation, test_sample_points)
             test_estimation = new_estimation
 
-        
-        # util.plot(new_img, test_sample_points.flatten().reshape([3 * len(model.base_shape), 2]))
+        util.plot(img, test_estimation)
+        # util.plot(img, test_sample_points.flatten().reshape([3 * len(model.base_shape), 2]))
+
+    img = resize(img, height=800)
+    cv2.imshow('frame', img)
+    key = cv2.waitKey(30) & 0xFF
+    if key == 27:
+        break

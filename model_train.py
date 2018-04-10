@@ -93,8 +93,14 @@ p = Pool(4)
 dataset = dict(p.map(first_estimation, dataset.items()))
 
 def warp(shape_a, shape_b, groups):
-    diff = shape_a - shape_b
-    return np.array([group + diff[i] for i, group in enumerate(groups)])
+    scale, angle, _ = util.similarity_transform(shape_b, shape_a)
+    new_groups = np.zeros(groups.shape)
+    for i, group in enumerate(groups):
+        for j, point in enumerate(group):
+            offset = point - shape_a[i]
+            offset = util.rotate(offset / scale, -angle)
+            new_groups[i][j] = shape_b[i] - offset
+    return new_groups
 
 def update_data(item):
     file_name, data = item
@@ -161,12 +167,13 @@ for r in range(args.regressors):
         tree = RegressionTree(args.depth, labels, dataset, model)
 
         regressor.append(tree)
+
+        # Set the new tree for later update
         for key in dataset.keys():
             dataset[key]['tree'] = tree
 
         log('updating estimations and sample points...')
-        dataset = p.map(update_data, dataset.items())
-        dataset = dict(dataset)
+        dataset = dict(p.map(update_data, dataset.items()))
 
     regressors.append(regressor)
 
@@ -177,8 +184,10 @@ for file_name, data in dataset.items():
     image = data['image']
     estimation = data['estimation']
     first_estimation = data['first_estimation']
+    sample_points = np.array(data['sample_points'])
     util.plot(image, estimation)
     util.plot(image, first_estimation, [0, 0, 0])
+    # util.plot(image, sample_points.flatten().reshape([3 * len(model.base_shape), 2]))
     cv2.imshow('image', resize(image, height=500))
     k = cv2.waitKey(0) & 0xFF
     if k == 27:
