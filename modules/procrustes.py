@@ -1,7 +1,5 @@
 """This modules applies the Procrustes Analysis method to normalize the shapes
 of the dataset.
-
-Reference: wikipedia.org/wiki/Procrustes_analysis
 """
 __author__ = "Abner S. Nascimento"
 __copyright__ = "Copyright 2017, Facial Recognition Project"
