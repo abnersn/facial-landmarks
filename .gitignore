@@ -105,4 +105,5 @@ venv.bak/
 */*.jpg
 *.bin
 tests
+datasets
 .vscode/*.json
