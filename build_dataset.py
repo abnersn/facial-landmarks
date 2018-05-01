@@ -14,30 +14,30 @@ parser.add_argument('--output', help='output file', default='data.bin')
 args = parser.parse_args()
 
 print('reading images from directory')
-images = {}
+data = []
 for file_name in os.listdir(args.images_path):
     path = os.path.join(args.images_path, file_name)
-    img = cv2.imread(path, 0)
-    images[file_name] = img
+    data.append({
+        'file_name': file_name,
+        'image': cv2.imread(path, 0)
+    })
 
 print('reading annotations')
-annotations = {}
-for annotation_file in os.listdir(args.annotations_path):
-    path = os.path.join(args.annotations_path, annotation_file)
+for i, sample in enumerate(data):
+    path = os.path.join(args.annotations_path, sample['file_name'][0:-4] + '.txt')
     with open(path, 'r') as csv_file:
-        image_file = csv_file.readline().rstrip()
-        if image_file in images.keys():
-            points = []
-            for line in csv_file:
-                [point_x, point_y] = line.split(' , ')
-                point = (float(point_x), float(point_y))
-                points.append(point)
-            annotations[image_file] = np.array(points)
+        points = []
+        for line in csv_file:
+            [point_x, point_y] = line.split(' , ')
+            point = (int(point_x), int(point_y))
+            points.append(point)
+        data[i]['annotation'] = np.array(points).astype(np.uint16)
 
 detector = dlib.get_frontal_face_detector()
-def process(item):
-    file_name, image = item
-    annotation = annotations[file_name]
+def process(sample):
+    file_name = sample['file_name']
+    annotation = sample['annotation']
+    image = sample['image']
 
     # Use dlib to detect faces
     faces = detector(image)
@@ -81,17 +81,20 @@ def process(item):
         width = face.width()
         height = face.height()
 
-    return (file_name, {
+    return {
+        'file_name': file_name,
         'image': image,
-        'annotations': annotation,
+        'annotation': annotation,
         'top_left': top_left.astype(int),
         'width': int(round(width)),
         'height': int(round(height))
-    })
+    }
 
 
 p = Pool(cpu_count())
-data = dict(p.map(process, images.items()))
+data = p.map(process, data)
+p.close()
+p.join()
 
 with open(args.output, 'wb') as f:
     dill.dump(data, f)

@@ -5,10 +5,11 @@ from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_s
 class RegressionTree:
 
     @staticmethod
-    def __split_node(node, index, point_u, point_v, threshold, data):
+    def __split_node(node, split_params, data):
+        index, point_u, point_v, threshold = split_params        
         left = []
         right = []
-        for label in node:
+        for sample in node:
             intensity_data = data[label]['intensity_data']
             intensity_u = intensity_data[index][point_u]
             intensity_v = intensity_data[index][point_v]
@@ -68,37 +69,34 @@ class RegressionTree:
         return (index, point_u, point_v, best_threshold)
 
 
-    def __grow(self, labels, data):
-        nodes_queue = [labels]
+    def __grow(self, dataset):
+        nodes_queue = [dataset]
         levels_queue = [0]
         for _ in range((2 ** self.depth) - 1):
             node = nodes_queue.pop(0)
             level = levels_queue.pop(0)
-            split_params = self.__calc_split(node, data)
+            split_params = self.__calc_split(node, dataset)
             self.splits.append(split_params)
-            index, point_u, point_v, threshold = split_params
-            left, right = self.__split_node(node, index, point_u, point_v, threshold, data)
+            left, right = self.__split_node(node, split_params, dataset)
             nodes_queue.append(left)
             levels_queue.append(level + 1)
 
             nodes_queue.append(right)
             levels_queue.append(level + 1)
         for leaf in nodes_queue:
-            self.predictions.append(self.__predict_node(leaf, data))
+            self.predictions.append(self.__predict_node(leaf, dataset))
     
 
-    def __init__(self, depth, labels, data, model):
+    def __init__(self, depth, dataset, model):
         self.depth = depth
         self.splits = []
         self.predictions = []
         self.model = model
 
-        # A key to help getting a sample from the data
-        key = next(iter(data))
-        sample = data[key]
+        sample = dataset[0]
 
         self.shape = np.array(sample['regression_data']).shape
-        self.number_of_points = len(sample['intensity_data']) - 1
+        self.number_of_points = len(sample['intensity_data'])
 
         self.pairsQueue = []
         indexes = np.arange(len(sample['sample_points']))
@@ -110,4 +108,4 @@ class RegressionTree:
             self.pairsQueue.append((index, sub_indexes[0], sub_indexes[1]))
 
 
-        self.__grow(labels, data)
+        self.__grow(labels, dataset)
