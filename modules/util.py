@@ -6,13 +6,13 @@ implementation.
 import os
 import numpy as np
 import cv2
-from scipy.spatial.distance import cdist as distance
 
 # COLORS
 BLUE = [255, 0, 0]
 GREEN = [0, 255, 0]
 RED = [0, 0, 255]
 WHITE = [255, 255, 255]
+BLACK = [0, 0, 0]
 
 def read_annotations(annotations_path):
     '''Reads annotations files from dataset.
@@ -126,13 +126,17 @@ def find_theta(matrix_a, matrix_b):
     return theta
 
 
-def warp(points, shape_a, shape_b):
-    scale, angle, _ = similarity_transform(shape_b, shape_a)
-    warped = np.zeros(points.shape)
-    distances = distance(points, shape_a)
-    for i, _ in enumerate(points):
-        closest_point = np.argmin(distances[i])
-        offset = points[i] - shape_a[closest_point]
-        offset = rotate(offset / scale, -angle)
-        warped[i] = shape_b[closest_point] + offset
+def closest_point(point, shape):
+    distances = np.sum((shape - point)**2, axis=1)
+    return np.argmin(distances)
+
+
+def warp(sample_points, estimation, annotation):
+    scale, angle, _ = similarity_transform(estimation, annotation)
+    warped = np.zeros(sample_points.shape)
+    for i, point in enumerate(sample_points):
+        closest = closest_point(point, estimation)
+        offset = point - estimation[closest]
+        offset = rotate(offset * scale, angle)
+        warped[i] = annotation[closest] + offset
     return warped

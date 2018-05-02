@@ -22,7 +22,7 @@ for annotation_file in os.listdir('./datasets/helen/annotations/'):
         original = cv2.imread(original_path, 0)
         resized = cv2.imread(resized_path, 0)
         ratio = np.mean(np.array(original.shape) / np.array(resized.shape))
-        annotations = (np.array(points) / ratio).astype(np.uint16)
+        annotations = (np.array(points) / ratio)
 
         with open('./datasets/helen/resized_annotations/{}.txt'.format(image_file[0:-4]), 'w+') as annotation_file:
             for point in annotations:

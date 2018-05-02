@@ -19,11 +19,12 @@ parser.add_argument('dataset_path', help='Directory to load the pre processed da
 parser.add_argument('--regressors', default=10, help='Number of regressors to train.', type=int)
 parser.add_argument('--trees', default=500, help='Number of trees.', type=int)
 parser.add_argument('--depth', default=5, help='Trees depth.', type=int)
-parser.add_argument('--shrinkage', default=0.1, help='Shrinkage factor.', type=float)
-parser.add_argument('--points', default=3, help='Number of sample point per shape point.', type=int)
+parser.add_argument('--shrinkage', default=1, help='Shrinkage factor.', type=float)
+parser.add_argument('--points', default=600, help='Number of sample points.', type=int)
 parser.add_argument('--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
 args = parser.parse_args()
+
 
 def log(message):
     if(args.verbose):
@@ -33,6 +34,9 @@ log('reading dataset')
 with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
 
+# log('reading model')
+# with open('./model.bin', 'rb') as f:
+#     model = dill.load(f)
 
 log('calculating PCA model')
 model = ShapeModel(args.parameters, calculate_procrustes(dict(
@@ -43,16 +47,13 @@ with open('model.bin', 'wb') as f:
     pickle.dump(model, f)
 
 log('sorting sample points')
-radius = 0.60 * root_mean_square(model.base_shape)
-sample_points = np.zeros([len(model.base_shape), args.points, 2])
-for i, point in enumerate(model.base_shape):
-    sample_points[i] = util.sort_points(args.points, point, radius)
+radius = 2 * root_mean_square(model.base_shape)
+sample_points = util.sort_points(args.points, [0, 0], radius)
 
 with open('sample_points.bin', 'wb') as f:
     pickle.dump(sample_points, f)
 
 def first_estimation(item):
-    file_name = item['file_name']
     image = item['image']
     top_left = item['top_left']
     width = item['width']
@@ -65,21 +66,16 @@ def first_estimation(item):
     item['scale'] = scale
     item['estimation'] = model.base_shape * scale + pivot
     item['first_estimation'] = model.base_shape * scale + pivot
-    item['sample_points'] = []
-    for group in sample_points:
-        item['sample_points'].append(group * scale + pivot)
-    item['intensity_data'] = []
+    item['sample_points'] = sample_points * scale + pivot
 
-    for group in item['sample_points']:
-        intensity_group = []
-        for point in group:
-            y, x = np.array(point).astype(int)
-            try:
-                intensity = image.item(x, y)
-                intensity_group.append(intensity)
-            except IndexError:
-                intensity_group.append(-1)
-        item['intensity_data'].append(intensity_group)
+    item['intensity_data'] = []
+    for point in item['sample_points']:
+        y, x = np.array(point).astype(int)
+        try:
+            intensity = image.item(x, y)
+            item['intensity_data'].append(intensity)
+        except IndexError:
+            item['intensity_data'].append(0)
 
     real_shape_norm = item['annotation'] - pivot
     real_shape_norm /= scale
@@ -91,53 +87,44 @@ def first_estimation(item):
 
 log('calculating first estimations')
 p = Pool(4)
-dataset = p.map(first_estimation, dataset)
+dataset = list(map(first_estimation, dataset))
 p.close()
 p.join()
 
-def warp(shape_a, shape_b, groups):
-    scale, angle, _ = util.similarity_transform(shape_b, shape_a)
-    new_groups = np.zeros(groups.shape)
-    for i, group in enumerate(groups):
-        for j, point in enumerate(group):
-            offset = point - shape_a[i]
-            offset = util.rotate(offset / scale, -angle)
-            new_groups[i][j] = shape_b[i] - offset
-    return new_groups
+# for sample in dataset:
+#     image = sample['image']
+#     estimation = sample['estimation']
+#     annotation = sample['annotation']
+
+#     util.plot(image, annotation, util.BLACK)
+#     util.plot(image, estimation, util.WHITE)
+
+#     cv2.imshow('image', image)
+#     k = cv2.waitKey(0) & 0xFF
+#     if k == 27:
+#         sys.exit(0)
 
 def update_data(item):
-    file_name = item['file_name']
-    begin = time()
-
-    # Calculate the tree prediction
-    calc_prediction = time()
-    index = item['tree'].apply(item['intensity_data'])
-    prediction = item['tree'].predictions[index]
-    calc_prediction = time() - calc_prediction
-
     # Normalize the estimation
-    calc_normalize = time()
     estimation_norm = ((item['estimation']
                         - item['pivot'])
                         / item['scale'])
-    calc_normalize = time() - calc_normalize
 
     # Displace the parameters according to the prediction
-    calc_displace = time()
     params_estimation = model.retrieve_parameters(estimation_norm)
-    params_estimation += prediction * args.shrinkage
-    calc_displace = time() - calc_displace
+
+    # Calculate the tree prediction
+    for tree in item['trees']:
+        index = tree.apply(item['intensity_data'])
+        prediction = tree.predictions[index] / len(item['trees'])
+        params_estimation += prediction * args.shrinkage
 
     # Update regression data
-    calc_update = time()
     new_regression_data = item['params_real_shape'] - params_estimation
     item['regression_data'] = new_regression_data
-    calc_update = time() - calc_update
 
     # Calculate the new estimation with the displaced parameters
-    calc_new_norm = time()
     new_estimation_norm = model.deform(params_estimation)
-    calc_new_norm = time() - calc_new_norm
 
     # Take the estimation back into position
     new_estimation = (new_estimation_norm
@@ -148,58 +135,58 @@ def update_data(item):
     item['estimation'] = new_estimation
 
     # Warp the points 
-    calc_warp = time()
     new_sample_points = []
-    for group in warp(new_estimation_norm, model.base_shape, sample_points):
+    for group in util.warp(sample_points, new_estimation_norm, model.base_shape):
         new_sample_points.append(group * item['scale'] + item['pivot'])
     item['sample_points'] = new_sample_points
-    calc_warp = time() - calc_warp
 
 
-    calc_intensity = time()
-    new_intensity_data = []
-    for group in new_sample_points:
-        intensity_group = []
-        for point in group:
-            y, x = np.array(point).astype(int)
-            try:
-                intensity = item['image'].item(x, y)
-                intensity_group.append(intensity)
-            except IndexError:
-                intensity_group.append(-1)
-        new_intensity_data.append(intensity_group)
-    item['intensity_data'] = new_intensity_data
-    calc_intensity = time() - calc_intensity
+    for i, point in enumerate(item['sample_points']):
+        y, x = np.array(point).astype(int)
+        try:
+            intensity = item['image'].item(x, y)
+            item['intensity_data'][i] = intensity
+        except IndexError:
+            item['intensity_data'][i] = 0
 
-    total = time() - begin
-
-    return data
-
-p = Pool(4)
+    return item
 
 regressors = []
 for r in range(args.regressors):
     log('processing regressor {}...'.format(r + 1))
-    labels = [sample['file_name'] for sample in dataset]
 
     regressor = []
+    for i, sample in enumerate(dataset):
+        dataset[i]['trees'] = []
     for i in range(args.trees):
         log('training tree {}, from regressor {}...'.format(i + 1, r + 1))
-        tree = RegressionTree(args.depth, labels, dataset, model)
+        tree = RegressionTree(args.depth, dataset)
 
         regressor.append(tree)
 
         # Set the new tree for later update
-        for key in dataset.keys():
-            dataset[key]['tree'] = tree
+        for i, sample in enumerate(dataset):
+            dataset[i]['trees'].append(tree)
 
-        log('updating estimations and sample points...')
-        dataset = p.map(update_data, dataset)
+    log('updating estimations and sample points...')
+    dataset = list(map(update_data, dataset))
+
+    # DEBUG
+    sample = dataset[10]
+    _image = np.copy(sample['image'])
+    _estimation = sample['estimation']
+    _annotation = sample['annotation']
+
+    util.plot(_image, _annotation, util.BLACK)
+    util.plot(_image, _estimation, util.WHITE)
+
+
+    cv2.imshow('image', _image)
+    k = cv2.waitKey(50) & 0xFF
+    if k == 27:
+        break
 
     regressors.append(regressor)
-
-p.close()
-p.join()
 
 with open('reg.bin', 'wb') as f:
     pickle.dump(regressors, f)
@@ -207,11 +194,13 @@ with open('reg.bin', 'wb') as f:
 for sample in dataset:
     image = sample['image']
     estimation = sample['estimation']
-    first_estimation = sample['first_estimation']
+    annotation = sample['annotation']
     sample_points = np.array(sample['sample_points'])
-    util.plot(image, estimation)
-    util.plot(image, first_estimation, [0, 0, 0])
-    cv2.imshow('image', resize(image, height=500))
+
+    util.plot(image, annotation, util.BLACK)
+    util.plot(image, estimation, util.WHITE)
+
+    cv2.imshow('image', image)
     k = cv2.waitKey(0) & 0xFF
     if k == 27:
         sys.exit(0)

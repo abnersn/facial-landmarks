@@ -31,7 +31,7 @@ for i, sample in enumerate(data):
             [point_x, point_y] = line.split(' , ')
             point = (int(point_x), int(point_y))
             points.append(point)
-        data[i]['annotation'] = np.array(points).astype(np.uint16)
+        data[i]['annotation'] = np.array(points)
 
 detector = dlib.get_frontal_face_detector()
 def process(sample):
