@@ -10,7 +10,7 @@ from imutils import resize
 parser = argparse.ArgumentParser(description='Prepares a dataset for the facial landmarks algorithm\'s training process.')
 parser.add_argument('images_path', help='directory to read the images from.')
 parser.add_argument('annotations_path', help='directory to read the annotations from.')
-parser.add_argument('--output', help='output file', default='data.bin')
+parser.add_argument('-o', '--output', help='output file', default='data.bin')
 args = parser.parse_args()
 
 print('reading images from directory')
@@ -29,7 +29,7 @@ for i, sample in enumerate(data):
         points = []
         for line in csv_file:
             [point_x, point_y] = line.split(' , ')
-            point = (int(point_x), int(point_y))
+            point = (float(point_x), float(point_y))
             points.append(point)
         data[i]['annotation'] = np.array(points)
 

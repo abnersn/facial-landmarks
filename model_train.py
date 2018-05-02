@@ -9,19 +9,18 @@ import modules.util as util
 from time import sleep, time
 from modules.regression_tree import RegressionTree
 from modules.face_model import ShapeModel
-from multiprocessing import Pool, Process, cpu_count
 from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
 parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
 parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
-parser.add_argument('--regressors', default=10, help='Number of regressors to train.', type=int)
-parser.add_argument('--trees', default=500, help='Number of trees.', type=int)
-parser.add_argument('--depth', default=5, help='Trees depth.', type=int)
-parser.add_argument('--shrinkage', default=1, help='Shrinkage factor.', type=float)
-parser.add_argument('--points', default=600, help='Number of sample points.', type=int)
-parser.add_argument('--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-r', '--regressors', default=15, help='Number of regressors to train.', type=int)
+parser.add_argument('-t', '--trees', default=500, help='Number of trees.', type=int)
+parser.add_argument('-d', '--depth', default=5, help='Trees depth.', type=int)
+parser.add_argument('-s', '--shrinkage', default=1, help='Shrinkage factor.', type=float)
+parser.add_argument('-q', '--points', default=600, help='Number of sample points.', type=int)
+parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
 args = parser.parse_args()
 
@@ -34,23 +33,19 @@ log('reading dataset')
 with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
 
-# log('reading model')
-# with open('./model.bin', 'rb') as f:
-#     model = dill.load(f)
-
 log('calculating PCA model')
 model = ShapeModel(args.parameters, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
 )))
 
-with open('model.bin', 'wb') as f:
+with open('model.data', 'wb') as f:
     pickle.dump(model, f)
 
 log('sorting sample points')
 radius = 2 * root_mean_square(model.base_shape)
 sample_points = util.sort_points(args.points, [0, 0], radius)
 
-with open('sample_points.bin', 'wb') as f:
+with open('sample_points.data', 'wb') as f:
     pickle.dump(sample_points, f)
 
 def first_estimation(item):
@@ -86,23 +81,7 @@ def first_estimation(item):
     return item
 
 log('calculating first estimations')
-p = Pool(4)
 dataset = list(map(first_estimation, dataset))
-p.close()
-p.join()
-
-# for sample in dataset:
-#     image = sample['image']
-#     estimation = sample['estimation']
-#     annotation = sample['annotation']
-
-#     util.plot(image, annotation, util.BLACK)
-#     util.plot(image, estimation, util.WHITE)
-
-#     cv2.imshow('image', image)
-#     k = cv2.waitKey(0) & 0xFF
-#     if k == 27:
-#         sys.exit(0)
 
 def update_data(item):
     # Normalize the estimation

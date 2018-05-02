@@ -1,3 +1,4 @@
+#!/bin/python3.6
 import pickle
 import copy
 import os
