@@ -17,13 +17,13 @@ from imutils import resize
 cap = cv2.VideoCapture(0)
 detector = dlib.get_frontal_face_detector()
 
-with open('reg.bin', 'rb') as f:
+with open('reg.data', 'rb') as f:
     regressors = pickle.load(f)
 
-with open('model.bin', 'rb') as f:
+with open('model.data', 'rb') as f:
     model = pickle.load(f)
 
-with open('sample_points.bin', 'rb') as f:
+with open('sample_points.data', 'rb') as f:
     sample_points = pickle.load(f)
 
 while True:

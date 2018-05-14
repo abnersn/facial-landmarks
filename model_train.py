@@ -150,7 +150,7 @@ for r in range(args.regressors):
     log('updating estimations and sample points...')
     dataset = list(map(update_data, dataset))
 
-    # DEBUG
+    # DEBUG /start
     sample = dataset[10]
     _image = np.copy(sample['image'])
     _estimation = sample['estimation']
@@ -164,22 +164,9 @@ for r in range(args.regressors):
     k = cv2.waitKey(50) & 0xFF
     if k == 27:
         break
+    # DEGUG /end
 
     regressors.append(regressor)
 
-with open('reg.bin', 'wb') as f:
+with open('reg.data', 'wb') as f:
     pickle.dump(regressors, f)
-
-for sample in dataset:
-    image = sample['image']
-    estimation = sample['estimation']
-    annotation = sample['annotation']
-    sample_points = np.array(sample['sample_points'])
-
-    util.plot(image, annotation, util.BLACK)
-    util.plot(image, estimation, util.WHITE)
-
-    cv2.imshow('image', image)
-    k = cv2.waitKey(0) & 0xFF
-    if k == 27:
-        sys.exit(0)
