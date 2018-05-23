@@ -9,11 +9,16 @@ from modules.procrustes import root_mean_square, calculate_procrustes, find_thet
 with open('dev.data', 'rb') as f:
     dataset = pickle.load(f)
 
-model = ShapeModel(60, calculate_procrustes(dict(
+NUMBER_OF_PARAMS = 60
+START_INDEX = 120
+POINTS_TO_REMOVE = int(10 * 194 / 100)
+
+
+model = ShapeModel(NUMBER_OF_PARAMS, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
 )))
 
-sample = dataset[10]
+sample = dataset[0]
 
 normalized = sample['annotation']
 normalized -= np.mean(normalized, axis=0)
@@ -21,12 +26,9 @@ normalized /= root_mean_square(normalized)
 theta = find_theta(model.base_shape, normalized)
 normalized = rotate(normalized, theta)
 
-START_INDEX = 120
-POINTS_TO_REMOVE = int(50 * 194 / 100)
-NUMBER_OF_PARAMS = 120
 
-# faulty_points = [i + START_INDEX for i in range(POINTS_TO_REMOVE)]
 faulty_points = np.random.randint(0, 194, POINTS_TO_REMOVE)
+faulty_points = [i + START_INDEX for i in range(POINTS_TO_REMOVE)]
 
 while True:
     real = np.zeros([400, 400, 3], np.uint8)
