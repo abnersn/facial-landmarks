@@ -13,7 +13,6 @@ NUMBER_OF_PARAMS = 60
 START_INDEX = 120
 POINTS_TO_REMOVE = int(10 * 194 / 100)
 
-
 model = ShapeModel(NUMBER_OF_PARAMS, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
 )))
