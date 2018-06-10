@@ -111,6 +111,7 @@ class ShapeModel:
 
         return new_dataset
 
+
     def __mean_of_faces(self, dataset):
         """Calculates the average face of a dataset of shapes.
 
@@ -162,13 +163,19 @@ class ShapeModel:
         e_vectors = e_vectors[:, 0:self.number_of_params]
 
         return e_vectors
-    
+
     def deform(self, parameters):
         return self.base_shape + np.dot(self.vectors, parameters)
 
     def retrieve_parameters(self, shape):
         difference = shape - self.base_shape
         return np.dot(self.vectors.T, difference)
+
+    def retrieve_parameters_falty(self, shape, falty_points):
+        falty_base = np.delete(self.base_shape, falty_points, axis=0)
+        difference = shape - falty_base
+        vector = np.delete(self.vectors, falty_points, axis=0)
+        return np.dot(vector.T, difference)
 
     def __init__(self, number_of_params, dataset):
         self.number_of_params = number_of_params
