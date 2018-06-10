@@ -17,7 +17,7 @@ parser.add_argument('-r', '--regressors', default=15, help='Number of regressors
 parser.add_argument('-t', '--trees', default=30, help='Number of trees.', type=int)
 parser.add_argument('-d', '--depth', default=5, help='Trees depth.', type=int)
 parser.add_argument('-q', '--points', default=600, help='Number of sample points.', type=int)
-parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-p', '--parameters', default=70, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
 args = parser.parse_args()
 
@@ -40,8 +40,6 @@ with open('model.data', 'wb') as f:
 
 # with open('model.data', 'rb') as f:
 #     model = pickle.load(f)
-
-
 
 log('sorting sample points')
 RADIUS = 2 * root_mean_square(model.base_shape)
@@ -86,17 +84,19 @@ log('calculating first estimations')
 dataset = list(map(first_estimation, dataset))
 
 # DEBUG /start
-sample = dataset[4]
-_image = np.copy(sample['image'])
-_estimation = sample['estimation']
-_annotation = sample['annotation']
+# sample = dataset[45]
+# _image = np.copy(sample['image'])
+# _estimation = sample['estimation']
+# _annotation = sample['annotation']
 
-util.plot(_image, _annotation, util.BLACK)
-util.plot(_image, _estimation, util.WHITE)
+# # util.plot(_image, _annotation, util.BLACK)
+# _image = np.zeros(_image.shape)
+# util.plot(_image, sample['sample_points'], util.WHITE)
 
 
-cv2.imshow('image', _image)
-k = cv2.waitKey(0) & 0xFF
+# cv2.imshow('image', _image)
+# k = cv2.waitKey(0) & 0xFF
+# sys.exit()
 # DEGUG /end
 
 regressors = []
