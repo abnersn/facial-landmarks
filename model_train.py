@@ -17,11 +17,7 @@ parser.add_argument('-r', '--regressors', default=15, help='Number of regressors
 parser.add_argument('-t', '--trees', default=30, help='Number of trees.', type=int)
 parser.add_argument('-d', '--depth', default=5, help='Trees depth.', type=int)
 parser.add_argument('-q', '--points', default=600, help='Number of sample points.', type=int)
-<<<<<<< HEAD
 parser.add_argument('-p', '--parameters', default=70, help='Number of parameters to considerer for the PCA.', type=int)
-=======
-parser.add_argument('-p', '--parameters', default=12, help='Number of parameters to considerer for the PCA.', type=int)
->>>>>>> 1c4e3a04a5d1ccdf8f6685c7fe0dbaca2a73eb19
 parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
 args = parser.parse_args()
 
@@ -39,15 +35,6 @@ with open(args.dataset_path, 'rb') as f:
 #     [(sample['file_name'], sample['annotation']) for sample in dataset]
 # )))
 
-<<<<<<< HEAD
-=======
-# with open('model.data', 'wb') as f:
-#     pickle.dump(model, f)
-
-with open('model.data', 'rb') as f:
-    model = pickle.load(f)
-
->>>>>>> 1c4e3a04a5d1ccdf8f6685c7fe0dbaca2a73eb19
 log('sorting sample points')
 RADIUS = 2 * root_mean_square(model.base_shape)
 sample_points = util.sort_points(args.points, [0, 0], RADIUS)
