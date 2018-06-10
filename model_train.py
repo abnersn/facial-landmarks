@@ -30,10 +30,10 @@ log('reading dataset')
 with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
 
-# log('calculating PCA model')
-# model = ShapeModel(args.parameters, calculate_procrustes(dict(
-#     [(sample['file_name'], sample['annotation']) for sample in dataset]
-# )))
+log('calculating PCA model')
+model = ShapeModel(args.parameters, calculate_procrustes(dict(
+    [(sample['file_name'], sample['annotation']) for sample in dataset]
+)))
 
 log('sorting sample points')
 RADIUS = 2 * root_mean_square(model.base_shape)
@@ -161,7 +161,7 @@ for r in range(args.regressors):
     dataset = list(map(update_data, dataset))
 
     # DEBUG /start
-    sample = dataset[4]
+    sample = dataset[7]
     _image = np.copy(sample['image'])
     _estimation = sample['estimation']
     _annotation = sample['annotation']
