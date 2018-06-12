@@ -13,11 +13,11 @@ from imutils import resize
 
 parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
 parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
-parser.add_argument('-r', '--regressors', default=15, help='Number of regressors to train.', type=int)
-parser.add_argument('-t', '--trees', default=30, help='Number of trees.', type=int)
+parser.add_argument('-r', '--regressors', default=300, help='Number of regressors to train.', type=int)
+parser.add_argument('-t', '--trees', default=500, help='Number of trees.', type=int)
 parser.add_argument('-d', '--depth', default=5, help='Trees depth.', type=int)
 parser.add_argument('-q', '--points', default=600, help='Number of sample points.', type=int)
-parser.add_argument('-p', '--parameters', default=70, help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
 args = parser.parse_args()
 
@@ -34,6 +34,9 @@ log('calculating PCA model')
 model = ShapeModel(args.parameters, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
 )))
+
+with open('model.data', 'wb') as f:
+    pickle.dump(model, f)
 
 log('sorting sample points')
 RADIUS = 2 * root_mean_square(model.base_shape)
@@ -76,22 +79,6 @@ def first_estimation(item):
 
 log('calculating first estimations')
 dataset = list(map(first_estimation, dataset))
-
-# DEBUG /start
-# sample = dataset[45]
-# _image = np.copy(sample['image'])
-# _estimation = sample['estimation']
-# _annotation = sample['annotation']
-
-# # util.plot(_image, _annotation, util.BLACK)
-# _image = np.zeros(_image.shape)
-# util.plot(_image, sample['sample_points'], util.WHITE)
-
-
-# cv2.imshow('image', _image)
-# k = cv2.waitKey(0) & 0xFF
-# sys.exit()
-# DEGUG /end
 
 regressors = []
 current_regressor = 0
@@ -153,6 +140,7 @@ for r in range(args.regressors):
     for i in range(args.trees):
         log('training tree {}, from regressor {}...'.format(i + 1, r + 1))
         tree = RegressionTree(args.depth, dataset)
+        # log('...it has {} non-zero predictions'.format(len([ p for p in tree.predictions if np.count_nonzero(p) > 0 ])))
 
         regressor.append(tree)
     regressors.append(regressor)
@@ -161,7 +149,7 @@ for r in range(args.regressors):
     dataset = list(map(update_data, dataset))
 
     # DEBUG /start
-    sample = dataset[7]
+    sample = dataset[4]
     _image = np.copy(sample['image'])
     _estimation = sample['estimation']
     _annotation = sample['annotation']
@@ -176,5 +164,5 @@ for r in range(args.regressors):
         break
     # DEGUG /end
 
-with open('reg.data', 'wb') as f:
-    pickle.dump(regressors, f)
+    with open('reg.data', 'wb') as f:
+        pickle.dump(regressors, f)

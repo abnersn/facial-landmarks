@@ -50,7 +50,7 @@ class RegressionTree:
     def __grow(self, dataset):
         nodes = [dataset]
         for i, split in enumerate(self.splits):
-            thresholds = np.random.randint(-255, 255, 20)
+            thresholds = np.random.randint(-255, 255, 40)
             maximum_diff = -float("inf")
             best_threshold = thresholds[0]
 
@@ -62,6 +62,11 @@ class RegressionTree:
                     left, right = self.__split_node(node, split)
                     prediction_left = self.__predict_node(left)
                     prediction_right = self.__predict_node(right)
+
+                    # avoid empty nodes
+                    if len(left) < 2 or len(right) < 2:
+                        diff = -1
+                    
                     diff += (len(left) * np.sum(prediction_left ** 2)
                            + len(right) * np.sum(prediction_right ** 2))
                 if diff > maximum_diff:

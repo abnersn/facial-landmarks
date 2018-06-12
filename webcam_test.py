@@ -55,7 +55,7 @@ while True:
             for tree in regressor:
                 index = tree.apply(intensity_data)
                 delta_params = tree.predictions[index]
-                params_estimation += delta_params / len(regressor)
+                params_estimation += delta_params / len(regressor) * 1.1
             new_estimation = model.deform(params_estimation)
             new_estimation = (new_estimation * scale + pivot)
 
