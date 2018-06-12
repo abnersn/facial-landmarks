@@ -13,10 +13,10 @@ from imutils import resize
 
 parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
 parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
-parser.add_argument('-r', '--regressors', default=300, help='Number of regressors to train.', type=int)
+parser.add_argument('-r', '--regressors', default=3, help='Number of regressors to train.', type=int)
 parser.add_argument('-t', '--trees', default=500, help='Number of trees.', type=int)
-parser.add_argument('-d', '--depth', default=5, help='Trees depth.', type=int)
-parser.add_argument('-q', '--points', default=600, help='Number of sample points.', type=int)
+parser.add_argument('-d', '--depth', default=3, help='Trees depth.', type=int)
+parser.add_argument('-q', '--points', default=400, help='Number of sample points.', type=int)
 parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
 args = parser.parse_args()
@@ -81,9 +81,9 @@ log('calculating first estimations')
 dataset = list(map(first_estimation, dataset))
 
 regressors = []
-current_regressor = 0
+current_regressor = []
 
-def update_data(item):
+def update_estimation(item):
     # Normalize the estimation
     estimation_norm = ((item['estimation']
                         - item['pivot'])
@@ -93,10 +93,11 @@ def update_data(item):
     params_estimation = model.retrieve_parameters(estimation_norm)
 
     # Calculate the tree prediction
-    for tree in regressors[current_regressor]:
-        index = tree.apply(item['intensity_data'])
-        prediction = tree.predictions[index] / len(regressors[current_regressor])
-        params_estimation += prediction
+    # for tree in current_regressor:
+    tree = current_regressor[-1]
+    index = tree.apply(item['intensity_data'])
+    prediction = tree.predictions[index] * 0.1
+    params_estimation += prediction
 
     # Update regression data
     new_regression_data = item['params_real_shape'] - params_estimation
@@ -111,13 +112,25 @@ def update_data(item):
                       + item['pivot'])
     
     # Update data
+    if len(current_regressor) == 1:
+        item['previous_estimation'] = np.copy(item['estimation'])
     item['estimation'] = new_estimation
 
+    return item
+
+def update_warping(item):
     # Warp the points 
-    new_sample_points = []
-    for group in util.warp(sample_points, new_estimation_norm, model.base_shape):
-        new_sample_points.append(group * item['scale'] + item['pivot'])
-    item['sample_points'] = new_sample_points
+    item['sample_points'] = util.warp(
+        item['sample_points'],
+        item['previous_estimation'],
+        item['estimation']
+    )
+
+    # empty = np.zeros([1000, 1000, 3])
+    # util.plot(empty, item['estimation'], util.BLUE)
+    # util.plot(empty, item['previous_estimation'])
+    # cv2.imshow("debug", empty)
+    # cv2.waitKey(0)
 
 
     for i, point in enumerate(item['sample_points']):
@@ -128,41 +141,45 @@ def update_data(item):
         # If the sample point is outside of the image borders
         except IndexError:
             item['intensity_data'][i] = 0
-
     return item
+    
 
 for r in range(args.regressors):
     log('processing regressor {}...'.format(r + 1))
 
-    current_regressor = r
+    current_regressor = []
 
-    regressor = []
     for i in range(args.trees):
         log('training tree {}, from regressor {}...'.format(i + 1, r + 1))
         tree = RegressionTree(args.depth, dataset)
-        # log('...it has {} non-zero predictions'.format(len([ p for p in tree.predictions if np.count_nonzero(p) > 0 ])))
+        current_regressor.append(tree)
+        
+        log('updating estimations')
+        dataset = list(map(update_estimation, dataset))
+        # DEBUG /start
+        sample = dataset[4]
+        _image = cv2.cvtColor(np.copy(sample['image']), cv2.COLOR_GRAY2BGR)
+        _estimation = sample['estimation']
+        _sample_points = sample['sample_points']
+        _annotation = sample['annotation']
 
-        regressor.append(tree)
-    regressors.append(regressor)
+        # print(sample['regression_data'])
 
-    log('updating estimations and sample points...')
-    dataset = list(map(update_data, dataset))
-
-    # DEBUG /start
-    sample = dataset[4]
-    _image = np.copy(sample['image'])
-    _estimation = sample['estimation']
-    _annotation = sample['annotation']
-
-    util.plot(_image, _annotation, util.BLACK)
-    util.plot(_image, _estimation, util.WHITE)
+        util.plot(_image, _annotation, util.BLACK)
+        util.plot(_image, _sample_points, util.BLUE)
+        util.plot(_image, _estimation, util.WHITE)
 
 
-    cv2.imshow('image', _image)
-    k = cv2.waitKey(100) & 0xFF
-    if k == 27:
-        break
-    # DEGUG /end
+        cv2.imshow('image', _image)
+        k = cv2.waitKey(100) & 0xFF
+        if k == 27:
+            break
+        # DEGUG /end
+    regressors.append(current_regressor)
+
+    log('updating sample points...')
+    dataset = list(map(update_warping, dataset))
+
 
     with open('reg.data', 'wb') as f:
         pickle.dump(regressors, f)

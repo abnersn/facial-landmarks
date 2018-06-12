@@ -83,26 +83,29 @@ for j, item in enumerate(dataset):
     norm_distance = interocular_distance(annotation)
 
     for regressor in regressors:
-        estimation_norm = ((item['estimation']
-                        - item['pivot'])
-                        / item['scale'])
-        params_estimation = model.retrieve_parameters(estimation_norm)
+        item['previous_estimation'] = item['estimation']
 
         for tree in regressor:
+            estimation_norm = ((item['estimation']
+                            - item['pivot'])
+                            / item['scale'])
+            params_estimation = model.retrieve_parameters(estimation_norm)
+
             index = tree.apply(item['intensity_data'])
-            prediction = tree.predictions[index] / len(regressor)
+            prediction = tree.predictions[index] * 0.1
             params_estimation += prediction
         
-        new_estimation_norm = model.deform(params_estimation)
-        new_estimation = (new_estimation_norm
-                      * item['scale']
-                      + item['pivot'])
-        item['estimation'] = new_estimation
-
-        new_sample_points = []
-        for group in util.warp(sample_points, new_estimation_norm, model.base_shape):
-            new_sample_points.append(group * item['scale'] + item['pivot'])
-        item['sample_points'] = new_sample_points
+            new_estimation_norm = model.deform(params_estimation)
+            new_estimation = (new_estimation_norm
+                        * item['scale']
+                        + item['pivot'])
+            item['estimation'] = new_estimation
+        
+        item['sample_points'] = util.warp(
+            item['sample_points'],
+            item['previous_estimation'],
+            item['estimation']
+        )
 
         for i, point in enumerate(item['sample_points']):
             y, x = np.array(point).astype(int)
@@ -113,14 +116,14 @@ for j, item in enumerate(dataset):
                 item['intensity_data'][i] = 0
 
 
-        # _image = np.copy(image)
-        # util.plot(_image, item['annotation'], util.BLACK)
-        # util.plot(_image, item['estimation'], util.WHITE)
+        _image = np.copy(image)
+        util.plot(_image, item['annotation'], util.BLACK)
+        util.plot(_image, item['estimation'], util.WHITE)
 
-        # cv2.imshow('image', _image)
-        # k = cv2.waitKey(0) & 0xFF
-        # if k == 27:
-        #     sys.exit(0)
+        cv2.imshow('image', _image)
+        k = cv2.waitKey(0) & 0xFF
+        if k == 27:
+            sys.exit(0)
     
     log('Calculating error on {} image {}'.format(j, item['file_name']))
     for i, point_estimation in enumerate(item['estimation']):
