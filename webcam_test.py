@@ -37,34 +37,48 @@ while True:
         scale = face.width() * 0.3
 
         first_estimation = model.base_shape * scale + pivot
-        test_estimation = model.base_shape * scale + pivot
-        test_sample_points = sample_points * scale + pivot
+        estimation = first_estimation
+        sample_points = sample_points * scale + pivot
         
-        for regressor in regressors:
-            intensity_data = []
-            for point in test_sample_points:
-                y, x = np.array(point).astype(int)
-                try:
-                    intensity = img.item(x, y)
-                    intensity_data.append(intensity)
-                except IndexError:
-                    intensity_data.append(0)
+        intensity_data = []
+        for point in sample_points:
+            y, x = np.array(point).astype(int)
+            try:
+                intensity = img.item(x, y)
+                intensity_data.append(intensity)
+            except IndexError:
+                intensity_data.append(0)
 
-            test_estimation_norm = (test_estimation - pivot) / scale
-            params_estimation = model.retrieve_parameters(test_estimation_norm)
+        for regressor in regressors:            
+            previous_estimation = estimation
+
             for tree in regressor:
+                estimation_norm = (estimation - pivot) / scale
+                params_estimation = model.retrieve_parameters(estimation_norm)
+
                 index = tree.apply(intensity_data)
-                delta_params = tree.predictions[index]
-                params_estimation += delta_params / len(regressor) * 1.1
-            new_estimation = model.deform(params_estimation)
-            new_estimation = (new_estimation * scale + pivot)
+                prediction = tree.predictions[index] * 0.1
+                params_estimation += prediction
+
+                new_estimation_norm = model.deform(params_estimation)
+                new_estimation = (new_estimation_norm * scale + pivot)
+                estimation = new_estimation
 
             # Update sample points and estimation
-            test_sample_points = util.warp(test_sample_points, test_estimation, new_estimation)
-            test_estimation = new_estimation
+            sample_points = util.warp(
+                sample_points,
+                previous_estimation,
+                estimation
+            )
 
-        util.plot(img, test_estimation)
-        # util.plot(img, test_sample_points.flatten().reshape([3 * len(model.base_shape), 2]))
+            for i, point in enumerate(sample_points):
+                y, x = np.array(point).astype(int)
+                try:
+                    intensity_data[i] = img.item(x, y)
+                except IndexError:
+                    intensity_data[i] = 0
+
+        util.plot(img, estimation)
 
     img = resize(img, height=800)
     cv2.imshow('frame', img)

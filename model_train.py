@@ -13,12 +13,13 @@ from imutils import resize
 
 parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
 parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
-parser.add_argument('-r', '--regressors', default=3, help='Number of regressors to train.', type=int)
+parser.add_argument('-r', '--regressors', default=10, help='Number of regressors to train.', type=int)
 parser.add_argument('-t', '--trees', default=500, help='Number of trees.', type=int)
 parser.add_argument('-d', '--depth', default=3, help='Trees depth.', type=int)
 parser.add_argument('-q', '--points', default=400, help='Number of sample points.', type=int)
-parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-p', '--parameters', default=180, help='Number of parameters to considerer for the PCA.', type=int)
 parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
+parser.add_argument('--safe', action='store_true', help='Turn on safe mode, regressors will be saved after each iteration of the training process.')
 args = parser.parse_args()
 
 
@@ -126,13 +127,6 @@ def update_warping(item):
         item['estimation']
     )
 
-    # empty = np.zeros([1000, 1000, 3])
-    # util.plot(empty, item['estimation'], util.BLUE)
-    # util.plot(empty, item['previous_estimation'])
-    # cv2.imshow("debug", empty)
-    # cv2.waitKey(0)
-
-
     for i, point in enumerate(item['sample_points']):
         y, x = np.array(point).astype(int)
         try:
@@ -180,6 +174,10 @@ for r in range(args.regressors):
     log('updating sample points...')
     dataset = list(map(update_warping, dataset))
 
+    if args.safe:
+        with open('reg.data', 'wb') as f:
+            pickle.dump(regressors, f)
 
+if not args.safe:
     with open('reg.data', 'wb') as f:
         pickle.dump(regressors, f)

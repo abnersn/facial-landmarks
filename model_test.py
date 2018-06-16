@@ -15,6 +15,7 @@ parser.add_argument('-r', '--regressors_path', default='./reg.data', help='Prepr
 parser.add_argument('-s', '--sample_points', default='./sample_points.data', help='Sample points file used for training.')
 parser.add_argument('-m', '--model_path', default='./model.data', help='Preprocessed PCA model file path.')
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
+parser.add_argument('-i', '--image', action='store_true', help='Whether or not display the images.')
 args = parser.parse_args()
 
 def log(message):
@@ -115,15 +116,15 @@ for j, item in enumerate(dataset):
             except IndexError:
                 item['intensity_data'][i] = 0
 
+        if args.image:
+            _image = np.copy(image)
+            util.plot(_image, item['annotation'], util.BLACK)
+            util.plot(_image, item['estimation'], util.WHITE)
 
-        _image = np.copy(image)
-        util.plot(_image, item['annotation'], util.BLACK)
-        util.plot(_image, item['estimation'], util.WHITE)
-
-        cv2.imshow('image', _image)
-        k = cv2.waitKey(0) & 0xFF
-        if k == 27:
-            sys.exit(0)
+            cv2.imshow('image', _image)
+            k = cv2.waitKey(0) & 0xFF
+            if k == 27:
+                sys.exit(0)
     
     log('Calculating error on {} image {}'.format(j, item['file_name']))
     for i, point_estimation in enumerate(item['estimation']):
