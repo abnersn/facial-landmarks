@@ -90,6 +90,7 @@ class RegressionTree:
         scores = np.sum((points - base_point) ** 2, axis=1).astype(np.float32)
         scores = [score if score != 0 else np.inf for score in scores]
         scores = np.array(scores) ** -1
+        scores = np.exp(scores)
         scores /= np.sum(scores)
         acc = 0
         r = np.random.ranf()

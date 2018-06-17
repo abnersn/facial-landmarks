@@ -11,9 +11,7 @@ from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_s
 
 parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
 parser.add_argument('dataset_path', help='Preprocessed file that contains the testing dataset.')
-parser.add_argument('-r', '--regressors_path', default='./reg.data', help='Preprocessed regressors file path.')
-parser.add_argument('-s', '--sample_points', default='./sample_points.data', help='Sample points file used for training.')
-parser.add_argument('-m', '--model_path', default='./model.data', help='Preprocessed PCA model file path.')
+parser.add_argument('-m', '--model_path', default='./model.data', help='Trained model file path.')
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
 parser.add_argument('-i', '--image', action='store_true', help='Whether or not display the images.')
 args = parser.parse_args()
@@ -26,17 +24,14 @@ log('loading dataset')
 with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
 
-log('loading regressors')
-with open(args.regressors_path, 'rb') as f:
-    regressors = dill.load(f)
-
 log('loading model')
 with open(args.model_path, 'rb') as f:
     model = dill.load(f)
 
-log('loading sample_points')
-with open(args.sample_points, 'rb') as f:
-    sample_points = dill.load(f)
+sample_points = model['sample_points']
+regressors = model['regressors']
+pca_model = model['pca_model']
+
 
 def first_estimation(item):
     image = item['image']
@@ -45,12 +40,12 @@ def first_estimation(item):
     height = item['height']
 
     pivot = top_left + [width / 2, height / 2]
-    scale = 0.3 * width
+    scale = 0.4 * width
 
     item['pivot'] = pivot
     item['scale'] = scale
-    item['estimation'] = model.base_shape * scale + pivot
-    item['first_estimation'] = model.base_shape * scale + pivot
+    item['estimation'] = pca_model.base_shape * scale + pivot
+    item['first_estimation'] = pca_model.base_shape * scale + pivot
     item['sample_points'] = sample_points * scale + pivot
 
     item['intensity_data'] = []
@@ -90,13 +85,13 @@ for j, item in enumerate(dataset):
             estimation_norm = ((item['estimation']
                             - item['pivot'])
                             / item['scale'])
-            params_estimation = model.retrieve_parameters(estimation_norm)
+            params_estimation = pca_model.retrieve_parameters(estimation_norm)
 
             index = tree.apply(item['intensity_data'])
             prediction = tree.predictions[index] * 0.1
             params_estimation += prediction
         
-            new_estimation_norm = model.deform(params_estimation)
+            new_estimation_norm = pca_model.deform(params_estimation)
             new_estimation = (new_estimation_norm
                         * item['scale']
                         + item['pivot'])

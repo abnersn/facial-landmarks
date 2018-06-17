@@ -26,62 +26,68 @@ with open('model.data', 'rb') as f:
 with open('sample_points.data', 'rb') as f:
     sample_points = pickle.load(f)
 
-while True:
-    _, img = cap.read()
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = detector(img)
-    for face in faces:
-        top_left = (face.left(), face.top())
-        bottom_right = (face.right(), face.bottom())
-        pivot = ((np.array(top_left) + np.array(bottom_right)) / 2)
-        scale = face.width() * 0.3
+item = {}
 
-        first_estimation = model.base_shape * scale + pivot
-        estimation = first_estimation
-        sample_points = sample_points * scale + pivot
+while(True):
+    ret, img = cap.read()
+    item['image'] = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = detector(item['image'])
+    for face in faces:
+        top_left = np.array([face.left(), face.top()])
+        bottom_right = np.array([face.right(), face.bottom()])
+        item['pivot'] = (top_left + bottom_right) / 2
+        item['scale'] = face.width() * 0.4
+
+        item['estimation'] = model.base_shape * item['scale'] + item['pivot']
+        item['sample_points'] = sample_points * item['scale'] + item['pivot']
         
-        intensity_data = []
-        for point in sample_points:
+        item['intensity_data'] = []
+        for point in item['sample_points']:
             y, x = np.array(point).astype(int)
             try:
-                intensity = img.item(x, y)
-                intensity_data.append(intensity)
+                intensity = item['image'].item(x, y)
+                item['intensity_data'].append(intensity)
             except IndexError:
-                intensity_data.append(0)
+                item['intensity_data'].append(0)
 
-        for regressor in regressors:            
-            previous_estimation = estimation
+        for regressor in regressors:
+            item['previous_estimation'] = item['estimation']
 
             for tree in regressor:
-                estimation_norm = (estimation - pivot) / scale
+                estimation_norm = ((item['estimation']
+                                - item['pivot'])
+                                / item['scale'])
                 params_estimation = model.retrieve_parameters(estimation_norm)
 
-                index = tree.apply(intensity_data)
+                index = tree.apply(item['intensity_data'])
                 prediction = tree.predictions[index] * 0.1
                 params_estimation += prediction
-
+            
                 new_estimation_norm = model.deform(params_estimation)
-                new_estimation = (new_estimation_norm * scale + pivot)
-                estimation = new_estimation
+                new_estimation = (new_estimation_norm
+                            * item['scale']
+                            + item['pivot'])
+                item['estimation'] = new_estimation
 
             # Update sample points and estimation
-            sample_points = util.warp(
-                sample_points,
-                previous_estimation,
-                estimation
+            item['sample_points'] = util.warp(
+                item['sample_points'],
+                item['previous_estimation'],
+                item['estimation']
             )
 
-            for i, point in enumerate(sample_points):
+            for i, point in enumerate(item['sample_points']):
                 y, x = np.array(point).astype(int)
                 try:
-                    intensity_data[i] = img.item(x, y)
+                    intensity = item['image'].item(x, y)
+                    item['intensity_data'][i] = intensity
                 except IndexError:
-                    intensity_data[i] = 0
+                    item['intensity_data'][i] = 0
+            
+        _image = np.copy(item['image'])
+        util.plot(_image, item['estimation'], util.WHITE)
 
-        util.plot(img, estimation)
-
-    img = resize(img, height=800)
-    cv2.imshow('frame', img)
-    key = cv2.waitKey(30) & 0xFF
-    if key == 27:
-        break
+        cv2.imshow('image', _image)
+        k = cv2.waitKey(0) & 0xFF
+        if k == 27:
+            sys.exit(0)

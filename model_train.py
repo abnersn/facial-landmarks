@@ -17,11 +17,13 @@ parser.add_argument('-r', '--regressors', default=10, help='Number of regressors
 parser.add_argument('-t', '--trees', default=500, help='Number of trees.', type=int)
 parser.add_argument('-d', '--depth', default=3, help='Trees depth.', type=int)
 parser.add_argument('-q', '--points', default=400, help='Number of sample points.', type=int)
-parser.add_argument('-p', '--parameters', default=180, help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-o', '--output', default='model', help='Output filename.', type=str)
 parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
 parser.add_argument('--safe', action='store_true', help='Turn on safe mode, regressors will be saved after each iteration of the training process.')
 args = parser.parse_args()
 
+model = {}
 
 def log(message):
     if not args.silent:
@@ -32,19 +34,17 @@ with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
 
 log('calculating PCA model')
-model = ShapeModel(args.parameters, calculate_procrustes(dict(
+pca_model = ShapeModel(args.parameters, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
 )))
 
-with open('model.data', 'wb') as f:
-    pickle.dump(model, f)
+model['pca_model'] = pca_model
 
 log('sorting sample points')
-RADIUS = 2 * root_mean_square(model.base_shape)
+RADIUS = 2 * root_mean_square(pca_model.base_shape)
 sample_points = util.sort_points(args.points, [0, 0], RADIUS)
 
-with open('sample_points.data', 'wb') as f:
-    pickle.dump(sample_points, f)
+model['sample_points'] = sample_points
 
 def first_estimation(item):
     image = item['image']
@@ -53,12 +53,12 @@ def first_estimation(item):
     height = item['height']
 
     pivot = top_left + [width / 2, height / 2]
-    scale = 0.3 * width
+    scale = 0.4 * width
 
     item['pivot'] = pivot
     item['scale'] = scale
-    item['estimation'] = model.base_shape * scale + pivot
-    item['first_estimation'] = model.base_shape * scale + pivot
+    item['estimation'] = pca_model.base_shape * scale + pivot
+    item['first_estimation'] = pca_model.base_shape * scale + pivot
     item['sample_points'] = sample_points * scale + pivot
 
     item['intensity_data'] = []
@@ -72,9 +72,9 @@ def first_estimation(item):
 
     real_shape_norm = item['annotation'] - pivot
     real_shape_norm /= scale
-    params_real_shape = model.retrieve_parameters(real_shape_norm)
+    params_real_shape = pca_model.retrieve_parameters(real_shape_norm)
     item['params_real_shape'] = params_real_shape
-    params_estimation = model.retrieve_parameters(model.base_shape)
+    params_estimation = pca_model.retrieve_parameters(pca_model.base_shape)
     item['regression_data'] = params_real_shape - params_estimation
     return item
 
@@ -91,7 +91,7 @@ def update_estimation(item):
                         / item['scale'])
 
     # Displace the parameters according to the prediction
-    params_estimation = model.retrieve_parameters(estimation_norm)
+    params_estimation = pca_model.retrieve_parameters(estimation_norm)
 
     # Calculate the tree prediction
     # for tree in current_regressor:
@@ -105,7 +105,7 @@ def update_estimation(item):
     item['regression_data'] = new_regression_data
 
     # Calculate the new estimation with the displaced parameters
-    new_estimation_norm = model.deform(params_estimation)
+    new_estimation_norm = pca_model.deform(params_estimation)
 
     # Take the estimation back into position
     new_estimation = (new_estimation_norm
@@ -136,7 +136,8 @@ def update_warping(item):
         except IndexError:
             item['intensity_data'][i] = 0
     return item
-    
+
+debug_sample = 4
 
 for r in range(args.regressors):
     log('processing regressor {}...'.format(r + 1))
@@ -151,7 +152,7 @@ for r in range(args.regressors):
         log('updating estimations')
         dataset = list(map(update_estimation, dataset))
         # DEBUG /start
-        sample = dataset[4]
+        sample = dataset[debug_sample]
         _image = cv2.cvtColor(np.copy(sample['image']), cv2.COLOR_GRAY2BGR)
         _estimation = sample['estimation']
         _sample_points = sample['sample_points']
@@ -160,7 +161,7 @@ for r in range(args.regressors):
         # print(sample['regression_data'])
 
         util.plot(_image, _annotation, util.BLACK)
-        util.plot(_image, _sample_points, util.BLUE)
+        # util.plot(_image, _sample_points, util.BLUE)
         util.plot(_image, _estimation, util.WHITE)
 
 
@@ -168,6 +169,13 @@ for r in range(args.regressors):
         k = cv2.waitKey(100) & 0xFF
         if k == 27:
             break
+        elif k == 110:
+            debug_sample -= 1
+            log('sample {}'.format(debug_sample))
+        elif k == 109:
+            debug_sample += 1
+            log('sample {}'.format(debug_sample))
+        debug_sample = min(max(debug_sample, 0), 1999)
         # DEGUG /end
     regressors.append(current_regressor)
 
@@ -175,9 +183,11 @@ for r in range(args.regressors):
     dataset = list(map(update_warping, dataset))
 
     if args.safe:
-        with open('reg.data', 'wb') as f:
-            pickle.dump(regressors, f)
+        model['regressors'] = regressors
 
 if not args.safe:
-    with open('reg.data', 'wb') as f:
-        pickle.dump(regressors, f)
+    model['regressors'] = regressors
+
+if not args.safe:
+    with open(args.output, 'wb') as f:
+        pickle.dump(model, f)
