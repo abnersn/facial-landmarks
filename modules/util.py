@@ -52,11 +52,17 @@ def read_images(images_path, color=False):
         images[file_name] = img
     return images
 
-def plot(image, shape, color=WHITE):
+def plot(image, shape, color=WHITE, number=False, text_color=YELLOW):
     size = int(image.shape[0] * 0.005)
-    for point in shape:
+    for i, point in enumerate(shape):
+        if np.isnan(point).any():
+            continue
         draw_point = tuple(np.array(point).astype(int))
         cv2.circle(image, draw_point, size, color, thickness=-1)
+        if (number):
+            point = np.array(point) - [size, 2 * size]
+            cv2.putText(image, str(i), tuple(point.astype(int)),
+                        cv2.FONT_HERSHEY_COMPLEX, size * 0.05, text_color)
 
 def sort_points(number, center, radius):
     angles_base = np.full([number, 1], 2 * np.pi)

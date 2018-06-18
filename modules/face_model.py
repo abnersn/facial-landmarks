@@ -171,11 +171,12 @@ class ShapeModel:
         difference = shape - self.base_shape
         return np.dot(self.vectors.T, difference)
 
-    def retrieve_parameters_falty(self, shape, falty_points):
+    def retrieve_parameters_faulty(self, shape, falty_points):
         falty_base = np.delete(self.base_shape, falty_points, axis=0)
+        faulty_vector = np.delete(self.vectors, falty_points, axis=0)
         difference = shape - falty_base
-        vector = np.delete(self.vectors, falty_points, axis=0)
-        return np.dot(vector.T, difference)
+        return np.dot(faulty_vector.T, difference)
+
 
     def __init__(self, number_of_params, dataset):
         self.number_of_params = number_of_params
