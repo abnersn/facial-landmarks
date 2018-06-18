@@ -52,7 +52,7 @@ def read_images(images_path, color=False):
         images[file_name] = img
     return images
 
-def plot(image, shape, color=WHITE, number=False, text_color=YELLOW):
+def plot(image, shape, color=WHITE, number=False, text_color=GREEN):
     size = int(image.shape[0] * 0.005)
     for i, point in enumerate(shape):
         if np.isnan(point).any():
