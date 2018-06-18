@@ -108,3 +108,4 @@ tests
 datasets
 .vscode/*.json
 *.data
+trained_complete/

@@ -129,5 +129,4 @@ for j, item in enumerate(dataset):
 
 errors /= len(dataset)
 
-print(errors)
 print('Average error: {}'.format(np.mean(errors)))
