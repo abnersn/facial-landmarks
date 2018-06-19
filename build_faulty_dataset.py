@@ -7,10 +7,10 @@ from modules.face_model import ShapeModel
 from modules.procrustes import root_mean_square, calculate_procrustes, find_theta, rotate
 from imutils import resize
 
-with open('dev.data', 'rb') as f:
+with open('datasets/training_300', 'rb') as f:
     dataset = pickle.load(f)
 
-NUMBER_OF_PARAMS = 40
+NUMBER_OF_PARAMS = 12
 FAULTY_PERCENTAGE = 75
 
 model = ShapeModel(NUMBER_OF_PARAMS, calculate_procrustes(dict(
@@ -74,7 +74,7 @@ def correct_interpolate(faulty_shape):
                                          + offset * (i + 1))
     return faulty_shape
     
-sample = dataset[74]
+sample = dataset[21]
 
 amount_to_remove = int(np.round(194 * FAULTY_PERCENTAGE / 100))
 extremal_points = [0, 40, 41, 57, 58, 113, 114, 133, 134, 153, 154, 173, 174, 193]

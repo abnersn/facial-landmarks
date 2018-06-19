@@ -17,14 +17,12 @@ from imutils import resize
 cap = cv2.VideoCapture(0)
 detector = dlib.get_frontal_face_detector()
 
-with open('reg.data', 'rb') as f:
-    regressors = pickle.load(f)
-
-with open('model.data', 'rb') as f:
+with open('trained_complete/model_2000i_120p', 'rb') as f:
     model = pickle.load(f)
 
-with open('sample_points.data', 'rb') as f:
-    sample_points = pickle.load(f)
+regressors = model['regressors']
+pca_model = model['pca_model']
+sample_points = model['sample_points']
 
 item = {}
 
@@ -38,7 +36,7 @@ while(True):
         item['pivot'] = (top_left + bottom_right) / 2
         item['scale'] = face.width() * 0.4
 
-        item['estimation'] = model.base_shape * item['scale'] + item['pivot']
+        item['estimation'] = pca_model.base_shape * item['scale'] + item['pivot']
         item['sample_points'] = sample_points * item['scale'] + item['pivot']
         
         item['intensity_data'] = []
@@ -57,13 +55,13 @@ while(True):
                 estimation_norm = ((item['estimation']
                                 - item['pivot'])
                                 / item['scale'])
-                params_estimation = model.retrieve_parameters(estimation_norm)
+                params_estimation = pca_model.retrieve_parameters(estimation_norm)
 
                 index = tree.apply(item['intensity_data'])
                 prediction = tree.predictions[index] * 0.1
                 params_estimation += prediction
             
-                new_estimation_norm = model.deform(params_estimation)
+                new_estimation_norm = pca_model.deform(params_estimation)
                 new_estimation = (new_estimation_norm
                             * item['scale']
                             + item['pivot'])
@@ -83,7 +81,7 @@ while(True):
                     item['intensity_data'][i] = intensity
                 except IndexError:
                     item['intensity_data'][i] = 0
-            
+
         _image = np.copy(item['image'])
         util.plot(_image, item['estimation'], util.WHITE)
 
