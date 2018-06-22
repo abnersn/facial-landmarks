@@ -109,3 +109,5 @@ datasets
 .vscode/*.json
 *.data
 trained_complete/
+faulty_datasets_pca/
+faulty_datasets_interpolation/

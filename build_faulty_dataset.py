@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import argparse
+import pickle, dill
 import pickle
 import numpy as np
 import cv2
@@ -119,9 +120,20 @@ for sample in dataset:
 
         interpolation_corrected['annotation'] = correct_interpolate(faulty_real_shape)
         pca_corrected['annotation'] = correct_pca(faulty_real_shape)
+    else:
+        interpolation_corrected['annotation'] = np.copy(sample['annotation'])
+        pca_corrected['annotation'] = np.copy(sample['annotation'])
 
     interpolation_corrected_dataset.append(interpolation_corrected)
     pca_corrected_dataset.append(pca_corrected)
+
+print('Saving pca corrected dataset')
+with open(args.dataset_path.replace('datasets', 'faulty_datasets_pca'), 'wb') as f:
+    dill.dump(pca_corrected_dataset, f)
+
+print('Saving interpolation corrected dataset')
+with open(args.dataset_path.replace('datasets', 'faulty_datasets_interpolation'), 'wb') as f:
+    dill.dump(interpolation_corrected_dataset, f)
 
 for i, sample in enumerate(pca_corrected_dataset):
     pca_corrected_image = np.copy(sample['image'])
