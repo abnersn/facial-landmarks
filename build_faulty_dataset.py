@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import argparse
 import pickle
 import numpy as np
 import cv2
@@ -7,15 +8,29 @@ from modules.face_model import ShapeModel
 from modules.procrustes import root_mean_square, calculate_procrustes, find_theta, rotate
 from imutils import resize
 
-with open('datasets/training_300', 'rb') as f:
+parser = argparse.ArgumentParser(description='Build a faulty dataset and recover the missing points using PCA and linear interpolation.')
+parser.add_argument('model_path', help='Directory of the complete samples to train the pca model.')
+parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
+parser.add_argument('-p', '--params', default=20, help='Number of parameters.', type=int)
+parser.add_argument('-c', '--percentage', default=80, help='Percentage of points to eliminate.', type=int)
+args = parser.parse_args()
+
+with open(args.model_path, 'rb') as f:
+    model_dataset = pickle.load(f)
+
+with open(args.dataset_path, 'rb') as f:
     dataset = pickle.load(f)
 
-NUMBER_OF_PARAMS = 120
-FAULTY_PERCENTAGE = 80
+complete_samples = [sample['file_name'] for sample in model_dataset]
+extremity_points = [0, 40, 41, 57, 58, 113, 114, 133, 134, 153, 154, 173, 174, 193]
+removal_candidates = [i for i in range(0, 194) if i not in extremity_points]
 
-model = ShapeModel(NUMBER_OF_PARAMS, calculate_procrustes(dict(
-    [(sample['file_name'], sample['annotation']) for sample in dataset]
+model = ShapeModel(args.params, calculate_procrustes(dict(
+    [(sample['file_name'], sample['annotation']) for sample in model_dataset]
 )))
+
+pca_corrected_dataset = []
+interpolation_corrected_dataset = []
 
 def correct_pca(faulty_shape):    
     faulty_points = []
@@ -73,25 +88,51 @@ def correct_interpolate(faulty_shape):
             faulty_shape[point_index] = (faulty_shape[first]
                                          + offset * (i + 1))
     return faulty_shape
+
+# Remove points from dataset
+for sample in dataset:
+    pca_corrected = {
+        'file_name': sample['file_name'],
+        'image': np.copy(sample['image']),
+        'annotation': np.copy(sample['annotation']),
+        'top_left': np.copy(sample['top_left']),
+        'width': sample['width'],
+        'height': sample['height']
+    }
+
+    interpolation_corrected = {
+        'file_name': sample['file_name'],
+        'image': np.copy(sample['image']),
+        'annotation': np.copy(sample['annotation']),
+        'top_left': np.copy(sample['top_left']),
+        'width': sample['width'],
+        'height': sample['height']
+    }
+
+    if sample['file_name'] not in complete_samples:
+        total_points = len(sample['annotation'])
+        amount_to_remove = int(np.round(total_points * args.percentage / 100))
+        faulty_points = np.random.choice(removal_candidates, amount_to_remove)
+
+        faulty_real_shape = np.copy(sample['annotation'])
+        faulty_real_shape[faulty_points] = np.array([np.nan, np.nan])
+
+        interpolation_corrected['annotation'] = correct_interpolate(faulty_real_shape)
+        pca_corrected['annotation'] = correct_pca(faulty_real_shape)
+
+    interpolation_corrected_dataset.append(interpolation_corrected)
+    pca_corrected_dataset.append(pca_corrected)
+
+for i, sample in enumerate(pca_corrected_dataset):
+    pca_corrected_image = np.copy(sample['image'])
+    interpolation_corrected_image = np.copy(sample['image'])
+
+    plot(pca_corrected_image, sample['annotation'])
+    plot(interpolation_corrected_image, interpolation_corrected_dataset[i]['annotation'])
+
+    cv2.imshow('PCA Corrected', pca_corrected_image)
+    cv2.imshow('Interpolation Corrected', interpolation_corrected_image)
     
-sample = dataset[21]
-
-amount_to_remove = int(np.round(194 * FAULTY_PERCENTAGE / 100))
-extremal_points = [0, 40, 41, 57, 58, 113, 114, 133, 134, 153, 154, 173, 174, 193]
-removal_candidates = [i for i in range(0, 194) if i not in extremal_points]
-faulty_points = np.random.choice(removal_candidates, amount_to_remove)
-
-faulty_real_shape = np.copy(sample['annotation'])
-faulty_real_shape[faulty_points] = np.array([np.nan, np.nan])
-
-corrected_interpolate = correct_interpolate(faulty_real_shape)
-corrected_pca = correct_pca(faulty_real_shape)
-img_1 = np.copy(sample['image'])
-
-plot(img_1, corrected_pca)
-plot(sample['image'], corrected_interpolate)
-cv2.imshow('interpolated', resize(sample['image'], height=750))
-cv2.imshow('pca', resize(img_1, height=750))
-k = cv2.waitKey(0) & 0xFF
-if k == 27:
-    pass
+    key = cv2.waitKey(0) & 0xFF
+    if key == 27:
+        break
