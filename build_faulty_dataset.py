@@ -10,8 +10,8 @@ from imutils import resize
 with open('datasets/training_300', 'rb') as f:
     dataset = pickle.load(f)
 
-NUMBER_OF_PARAMS = 12
-FAULTY_PERCENTAGE = 75
+NUMBER_OF_PARAMS = 120
+FAULTY_PERCENTAGE = 80
 
 model = ShapeModel(NUMBER_OF_PARAMS, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
@@ -54,8 +54,8 @@ def correct_interpolate(faulty_shape):
             if len(last_group) == 0 or last_group[-1] + 1 == i:
                 faulty_groups[-1].append(i)
             else:
-
                 faulty_groups.append([i])
+    
     for group in faulty_groups:
         first = min(group)
         if first == 0:
