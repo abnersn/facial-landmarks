@@ -31,7 +31,7 @@ model = ShapeModel(args.params, calculate_procrustes(dict(
 )))
 
 pca_corrected_dataset = []
-interpolation_corrected_dataset = []
+# interpolation_corrected_dataset = []
 
 def correct_pca(faulty_shape):    
     faulty_points = []
@@ -91,7 +91,9 @@ def correct_interpolate(faulty_shape):
     return faulty_shape
 
 # Remove points from dataset
-for sample in dataset:
+for i, sample in enumerate(dataset):
+    print('Correcting sample {}'.format(i))
+
     pca_corrected = {
         'file_name': sample['file_name'],
         'image': np.copy(sample['image']),
@@ -118,33 +120,36 @@ for sample in dataset:
         faulty_real_shape = np.copy(sample['annotation'])
         faulty_real_shape[faulty_points] = np.array([np.nan, np.nan])
 
-        interpolation_corrected['annotation'] = correct_interpolate(faulty_real_shape)
+        # interpolation_corrected['annotation'] = correct_interpolate(faulty_real_shape)
         pca_corrected['annotation'] = correct_pca(faulty_real_shape)
     else:
-        interpolation_corrected['annotation'] = np.copy(sample['annotation'])
+        # interpolation_corrected['annotation'] = np.copy(sample['annotation'])
         pca_corrected['annotation'] = np.copy(sample['annotation'])
 
-    interpolation_corrected_dataset.append(interpolation_corrected)
+    # interpolation_corrected_dataset.append(interpolation_corrected)
     pca_corrected_dataset.append(pca_corrected)
 
 print('Saving pca corrected dataset')
-with open(args.dataset_path.replace('datasets', 'faulty_datasets_pca'), 'wb') as f:
+filename = args.model_path.replace('datasets', 'faulty_datasets_pca')
+with open(filename + '_{}p_{}c'.format(args.params, args.percentage), 'wb') as f:
     dill.dump(pca_corrected_dataset, f)
 
-print('Saving interpolation corrected dataset')
-with open(args.dataset_path.replace('datasets', 'faulty_datasets_interpolation'), 'wb') as f:
-    dill.dump(interpolation_corrected_dataset, f)
+# print('Saving interpolation corrected dataset')
+# filename = args.model_path.replace('datasets', 'faulty_datasets_interpolation')
+# with open(filename + '_{}p_{}c'.format(args.params, args.percentage), 'wb') as f:
+    # dill.dump(interpolation_corrected_dataset, f)
 
-for i, sample in enumerate(pca_corrected_dataset):
-    pca_corrected_image = np.copy(sample['image'])
-    interpolation_corrected_image = np.copy(sample['image'])
+if False:
+    for i, sample in enumerate(pca_corrected_dataset):
+        pca_corrected_image = np.copy(sample['image'])
+        # interpolation_corrected_image = np.copy(sample['image'])
 
-    plot(pca_corrected_image, sample['annotation'])
-    plot(interpolation_corrected_image, interpolation_corrected_dataset[i]['annotation'])
+        plot(pca_corrected_image, sample['annotation'])
+        # plot(interpolation_corrected_image, interpolation_corrected_dataset[i]['annotation'])
 
-    cv2.imshow('PCA Corrected', pca_corrected_image)
-    cv2.imshow('Interpolation Corrected', interpolation_corrected_image)
-    
-    key = cv2.waitKey(0) & 0xFF
-    if key == 27:
-        break
+        cv2.imshow('PCA Corrected', pca_corrected_image)
+        # cv2.imshow('Interpolation Corrected', interpolation_corrected_image)
+        
+        key = cv2.waitKey(0) & 0xFF
+        if key == 27:
+            break
