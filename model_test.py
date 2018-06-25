@@ -5,6 +5,7 @@ import os, sys
 import numpy as np
 import cv2, dlib
 import modules.util as util
+from imutils import resize
 from modules.regression_tree import RegressionTree
 from modules.face_model import ShapeModel
 from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
@@ -111,21 +112,22 @@ for j, item in enumerate(dataset):
             except IndexError:
                 item['intensity_data'][i] = 0
 
-        if args.image:
-            _image = np.copy(image)
-            util.plot(_image, item['annotation'], util.BLACK)
-            util.plot(_image, item['estimation'], util.WHITE)
+    if args.image:
+        _image = np.copy(image)
+        util.plot(_image, item['annotation'], util.BLACK)
+        util.plot(_image, item['estimation'], util.WHITE)
 
-            cv2.imshow('image', _image)
-            k = cv2.waitKey(0) & 0xFF
-            if k == 27:
-                sys.exit(0)
+        cv2.imshow('image', resize(_image, height=600))
+        k = cv2.waitKey(0) & 0xFF
+        if k == 27:
+            sys.exit(0)
     
     log('Calculating error on {} image {}'.format(j, item['file_name']))
     for i, point_estimation in enumerate(item['estimation']):
         point_annotation = item['annotation'][i]
         distance = np.sqrt(np.sum((point_annotation - point_estimation) ** 2))
         errors[i] += distance / norm_distance
+    log(errors[i])
 
 errors /= len(dataset)
 

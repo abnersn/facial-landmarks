@@ -22,18 +22,20 @@
 # Average error: 0.19361847564868384
 # Average error: 0.10895693176874148
 
-python model_test.py datasets/testing -m trained_complete_pca/model_300_20p_40c;
-python model_test.py datasets/testing -m trained_complete_pca/model_300_20p_60c;
-python model_test.py datasets/testing -m trained_complete_pca/model_300_20p_80c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_20p_40c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_20p_60c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_20p_80c;
 
 
-python model_test.py datasets/testing -m trained_complete_pca/model_300_40p_40c;
-python model_test.py datasets/testing -m trained_complete_pca/model_300_40p_60c;
-python model_test.py datasets/testing -m trained_complete_pca/model_300_40p_80c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_40p_40c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_40p_60c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_40p_80c;
 
-python model_test.py datasets/testing -m trained_complete_pca/model_300_60p_40c;
-python model_test.py datasets/testing -m trained_complete_pca/model_300_60p_60c;
-python model_test.py datasets/testing -m trained_complete_pca/model_300_60p_80c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_60p_40c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_60p_60c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_300_60p_80c;
+
+# Corrigido pela PCA
 
 # Average error: 0.11956137514809759
 # Average error: 0.13144693464676266
@@ -44,3 +46,16 @@ python model_test.py datasets/testing -m trained_complete_pca/model_300_60p_80c;
 # Average error: 0.125051862842833
 # Average error: 0.1307528132317951
 # Average error: 0.14232084426104086
+
+
+# Corrigido pela Interpolação Linear
+
+# Average error: 0.10851390719778421
+# Average error: 0.11314203950386047
+# Average error: 0.11632379219467795
+# Average error: 0.11198022584857935
+# Average error: 0.1094497405486838
+# Average error: 0.11543578066217298
+# Average error: 0.11032484916620876
+# Average error: 0.11782904492316497
+# Average error: 0.1121814133620961

@@ -30,8 +30,8 @@ model = ShapeModel(args.params, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in model_dataset]
 )))
 
-# pca_corrected_dataset = []
-interpolation_corrected_dataset = []
+pca_corrected_dataset = []
+# interpolation_corrected_dataset = []
 
 def correct_pca(faulty_shape):    
     faulty_points = []
@@ -120,21 +120,21 @@ for i, sample in enumerate(dataset):
         faulty_real_shape = np.copy(sample['annotation'])
         faulty_real_shape[faulty_points] = np.array([np.nan, np.nan])
 
-        interpolation_corrected['annotation'] = correct_interpolate(faulty_real_shape)
-        # pca_corrected['annotation'] = correct_pca(faulty_real_shape)
+        # interpolation_corrected['annotation'] = correct_interpolate(faulty_real_shape)
+        pca_corrected['annotation'] = correct_pca(faulty_real_shape)
     else:
-        interpolation_corrected['annotation'] = np.copy(sample['annotation'])
-        # pca_corrected['annotation'] = np.copy(sample['annotation'])
+        # interpolation_corrected['annotation'] = np.copy(sample['annotation'])
+        pca_corrected['annotation'] = np.copy(sample['annotation'])
 
-    interpolation_corrected_dataset.append(interpolation_corrected)
-    # pca_corrected_dataset.append(pca_corrected)
+    # interpolation_corrected_dataset.append(interpolation_corrected)
+    pca_corrected_dataset.append(pca_corrected)
 
-# print('Saving pca corrected dataset')
-# filename = args.model_path.replace('datasets', 'faulty_datasets_pca')
-# with open(filename + '_{}p_{}c'.format(args.params, args.percentage), 'wb') as f:
-#     dill.dump(pca_corrected_dataset, f)
-
-print('Saving interpolation corrected dataset')
-filename = args.model_path.replace('datasets', 'faulty_datasets_interpolation')
+print('Saving pca corrected dataset')
+filename = args.model_path.replace('datasets', 'faulty_datasets_pca')
 with open(filename + '_{}p_{}c'.format(args.params, args.percentage), 'wb') as f:
-    dill.dump(interpolation_corrected_dataset, f)
+    dill.dump(pca_corrected_dataset, f)
+
+# print('Saving interpolation corrected dataset')
+# filename = args.model_path.replace('datasets', 'faulty_datasets_interpolation')
+# with open(filename + '_{}p_{}c'.format(args.params, args.percentage), 'wb') as f:
+#     dill.dump(interpolation_corrected_dataset, f)
