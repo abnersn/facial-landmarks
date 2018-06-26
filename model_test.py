@@ -79,7 +79,7 @@ for j, item in enumerate(dataset):
 
     norm_distance = interocular_distance(annotation)
 
-    for regressor in regressors:
+    for regressor in regressors[0:10]:
         item['previous_estimation'] = item['estimation']
 
         for tree in regressor:
@@ -112,6 +112,13 @@ for j, item in enumerate(dataset):
             except IndexError:
                 item['intensity_data'][i] = 0
 
+    log('Calculating error on {} image {}'.format(j, item['file_name']))
+    for i, point_estimation in enumerate(item['estimation']):
+        point_annotation = item['annotation'][i]
+        distance = np.sqrt(np.sum((point_annotation - point_estimation) ** 2))
+        errors[i] += distance / norm_distance
+    log(errors[i])
+
     if args.image:
         _image = np.copy(image)
         util.plot(_image, item['annotation'], util.BLACK)
@@ -121,13 +128,6 @@ for j, item in enumerate(dataset):
         k = cv2.waitKey(0) & 0xFF
         if k == 27:
             sys.exit(0)
-    
-    log('Calculating error on {} image {}'.format(j, item['file_name']))
-    for i, point_estimation in enumerate(item['estimation']):
-        point_annotation = item['annotation'][i]
-        distance = np.sqrt(np.sum((point_annotation - point_estimation) ** 2))
-        errors[i] += distance / norm_distance
-    log(errors[i])
 
 errors /= len(dataset)
 
