@@ -60,10 +60,28 @@
 # Average error: 0.1121814133620961
 
 
-python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_40c;
-python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_60c;
-python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c;
+# python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_40c;
+# python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_60c;
+# python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c;
 
 # Average error: 0.11327588263565937
 # Average error: 0.11396613577399012
 # Average error: 0.1166048660526999
+
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_70p_40c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_70p_60c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_70p_80c;
+
+# Average error: 0.1933095466381139
+# Average error: 0.19298203876923348
+# Average error: 0.19310195724648946
+
+echo 'ok';
+
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_90p_40c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_90p_60c;
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_90p_80c;
+
+# Average error: 0.19095274855763592
+# Average error: 0.11073517810831238
+# Average error: 0.11457108403667356

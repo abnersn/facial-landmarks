@@ -1,8 +1,8 @@
 #!/bin/bash
 
-python model_test.py datasets/testing -m trained_complete/model_2000i_70p
-python model_test.py datasets/testing -m trained_complete/model_2000i_90p
-python model_test.py datasets/testing -m trained_complete/model_2000i_120p
+# python model_test.py datasets/testing -m trained_complete/model_2000i_70p
+# python model_test.py datasets/testing -m trained_complete/model_2000i_90p
+# python model_test.py datasets/testing -m trained_complete/model_2000i_120p
 
 # R0
 # Average error: 0.5070395276683588
@@ -58,3 +58,26 @@ python model_test.py datasets/testing -m trained_complete/model_2000i_120p
 # Average error: 0.19361847564868384
 # Average error: 0.19134632749093416
 # Average error: 0.10895693176874148
+
+# Interpolado 40%
+# Average error: 0.1541558368909784
+# Average error: 0.12826118473821535
+# Average error: 0.12028889062236606
+# Average error: 0.11685496681140639
+# Average error: 0.11484620331871179
+# Average error: 0.11402253025915975
+# Average error: 0.113636533829164
+# Average error: 0.11340926492702358
+# Average error: 0.1133095947672056
+# Average error: 0.11327588263565937
+
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 1
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 2
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 3
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 4
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 5
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 6
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 7
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 8
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 9
+python model_test.py datasets/testing -m trained_complete_interpolation/model_150_20p_80c -l 10

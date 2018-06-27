@@ -15,6 +15,7 @@ parser.add_argument('dataset_path', help='Preprocessed file that contains the te
 parser.add_argument('-m', '--model_path', default='./model.data', help='Trained model file path.')
 parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
 parser.add_argument('-i', '--image', action='store_true', help='Whether or not display the images.')
+parser.add_argument('-l', '--limit', default=10, help='Limit the number of regressors to apply.', type=int)
 args = parser.parse_args()
 
 def log(message):
@@ -79,7 +80,7 @@ for j, item in enumerate(dataset):
 
     norm_distance = interocular_distance(annotation)
 
-    for regressor in regressors[0:10]:
+    for regressor in regressors[0:args.limit]:
         item['previous_estimation'] = item['estimation']
 
         for tree in regressor:
@@ -112,22 +113,28 @@ for j, item in enumerate(dataset):
             except IndexError:
                 item['intensity_data'][i] = 0
 
+    if args.image:
+        _image = cv2.imread('../helen/images/{}'.format(item['file_name']))
+        # util.plot(_image, item['annotation'], util.BLACK)
+        util.plot(_image, item['annotation'], [0, 255, 255])
+
+        percentage = args.model_path.split('_')[-1]
+
+        if j in [3, 10, 12, 19]:
+            name = item['file_name'].replace('.jpg', '_ref.jpg'.format(percentage))
+            cv2.imwrite(name, _image)
+
+        # cv2.imshow('image', resize(_image, height=600))
+        # k = cv2.waitKey(0) & 0xFF
+        # if k == 27:
+        #     sys.exit(0)
+    
     log('Calculating error on {} image {}'.format(j, item['file_name']))
     for i, point_estimation in enumerate(item['estimation']):
         point_annotation = item['annotation'][i]
         distance = np.sqrt(np.sum((point_annotation - point_estimation) ** 2))
         errors[i] += distance / norm_distance
     log(errors[i])
-
-    if args.image:
-        _image = np.copy(image)
-        util.plot(_image, item['annotation'], util.BLACK)
-        util.plot(_image, item['estimation'], util.WHITE)
-
-        cv2.imshow('image', resize(_image, height=600))
-        k = cv2.waitKey(0) & 0xFF
-        if k == 27:
-            sys.exit(0)
 
 errors /= len(dataset)
 
