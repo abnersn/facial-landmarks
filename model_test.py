@@ -1,26 +1,37 @@
 #!/bin/python3.6
 import argparse
-import pickle, dill
-import os, sys
+import pickle
+import dill
+import os
+import sys
 import numpy as np
-import cv2, dlib
+import cv2
+import dlib
 import modules.util as util
 from imutils import resize
 from modules.regression_tree import RegressionTree
 from modules.face_model import ShapeModel
 from modules.procrustes import calculate_procrustes, mean_of_shapes, root_mean_square
 
-parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
-parser.add_argument('dataset_path', help='Preprocessed file that contains the testing dataset.')
-parser.add_argument('-m', '--model_path', default='./model.data', help='Trained model file path.')
-parser.add_argument('-v', '--verbose', action='store_true', help='Whether or not print a detailed output.')
-parser.add_argument('-i', '--image', action='store_true', help='Whether or not display the images.')
-parser.add_argument('-l', '--limit', default=10, help='Limit the number of regressors to apply.', type=int)
+parser = argparse.ArgumentParser(
+    description='This script will train a set of regression trees over a preprocessed dataset.')
+parser.add_argument(
+    'dataset_path', help='Preprocessed file that contains the testing dataset.')
+parser.add_argument('-m', '--model_path',
+                    default='./model.data', help='Trained model file path.')
+parser.add_argument('-v', '--verbose', action='store_true',
+                    help='Whether or not print a detailed output.')
+parser.add_argument('-i', '--image', action='store_true',
+                    help='Whether or not display the images.')
+parser.add_argument('-l', '--limit', default=10,
+                    help='Limit the number of regressors to apply.', type=int)
 args = parser.parse_args()
+
 
 def log(message):
     if(args.verbose):
         print(message)
+
 
 log('loading dataset')
 with open(args.dataset_path, 'rb') as f:
@@ -61,17 +72,20 @@ def first_estimation(item):
 
     return item
 
+
 log('Calculating first estimation')
 dataset = list(map(first_estimation, dataset))
 
+
 def interocular_distance(shape):
-    left_eye = shape[114:134]
-    right_eye = shape[134:154]
+    left_eye = [shape[27], shape[29]]
+    right_eye = [shape[34], shape[32]]
 
     middle_left = np.mean(left_eye, axis=0)
     middle_right = np.mean(right_eye, axis=0)
     sum_diff = np.sum((middle_left - middle_right) ** 2)
     return np.sqrt(sum_diff)
+
 
 errors = np.zeros(len(dataset[0]['annotation']))
 for j, item in enumerate(dataset):
@@ -85,20 +99,20 @@ for j, item in enumerate(dataset):
 
         for tree in regressor:
             estimation_norm = ((item['estimation']
-                            - item['pivot'])
-                            / item['scale'])
+                                - item['pivot'])
+                               / item['scale'])
             params_estimation = pca_model.retrieve_parameters(estimation_norm)
 
             index = tree.apply(item['intensity_data'])
             prediction = tree.predictions[index] * 0.1
             params_estimation += prediction
-        
+
             new_estimation_norm = pca_model.deform(params_estimation)
             new_estimation = (new_estimation_norm
-                        * item['scale']
-                        + item['pivot'])
+                              * item['scale']
+                              + item['pivot'])
             item['estimation'] = new_estimation
-        
+
         item['sample_points'] = util.warp(
             item['sample_points'],
             item['previous_estimation'],
@@ -114,21 +128,22 @@ for j, item in enumerate(dataset):
                 item['intensity_data'][i] = 0
 
     if args.image:
-        _image = cv2.imread('../helen/images/{}'.format(item['file_name']))
+        _image = cv2.imread(
+            './datasets/caltech/images/{}'.format(item['file_name']))
         # util.plot(_image, item['annotation'], util.BLACK)
-        util.plot(_image, item['annotation'], [0, 255, 255])
+        util.plot(_image, item['estimation'], [0, 255, 255])
 
         percentage = args.model_path.split('_')[-1]
 
-        if j in [3, 10, 12, 19]:
-            name = item['file_name'].replace('.jpg', '_ref.jpg'.format(percentage))
-            cv2.imwrite(name, _image)
+        # if j in [3, 10, 12, 19]:
+        #     name = item['file_name'].replace('.jpg', '_ref.jpg'.format(percentage))
+        #     cv2.imwrite(name, _image)
 
-        # cv2.imshow('image', resize(_image, height=600))
-        # k = cv2.waitKey(0) & 0xFF
-        # if k == 27:
-        #     sys.exit(0)
-    
+        cv2.imshow('image', resize(_image, height=600))
+        k = cv2.waitKey(0) & 0xFF
+        if k == 27:
+            sys.exit(0)
+
     log('Calculating error on {} image {}'.format(j, item['file_name']))
     for i, point_estimation in enumerate(item['estimation']):
         point_annotation = item['annotation'][i]

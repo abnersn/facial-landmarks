@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class ShapeModel:
 
     def __rotate(self, matrix, theta):
@@ -20,7 +21,6 @@ class ShapeModel:
         result = np.dot(rotation_matrix, np.transpose(matrix))
         return np.transpose(result)
 
-
     def __root_mean_square(self, matrix):
         """Calculates the root mean squared distance of a set of points
 
@@ -33,7 +33,6 @@ class ShapeModel:
         square = np.power(matrix, 2)
         square_mean = np.mean(square)
         return np.sqrt(square_mean)
-
 
     def __scale_rms(self, matrix):
         """Scales a given shape so that the root mean squared distance of its
@@ -97,8 +96,10 @@ class ShapeModel:
         new_dataset = {}
         reference_key = next(iter(dataset))
         new_dataset[reference_key] = np.array(dataset[reference_key])
-        new_dataset[reference_key] = self.__translate_mean(new_dataset[reference_key])
-        new_dataset[reference_key] = self.__scale_rms(new_dataset[reference_key])
+        new_dataset[reference_key] = self.__translate_mean(
+            new_dataset[reference_key])
+        new_dataset[reference_key] = self.__scale_rms(
+            new_dataset[reference_key])
 
         for image_file, points_list in dataset.items():
             current_mean = self.__mean_of_faces(new_dataset)
@@ -111,7 +112,6 @@ class ShapeModel:
 
         return new_dataset
 
-
     def __mean_of_faces(self, dataset):
         """Calculates the average face of a dataset of shapes.
 
@@ -120,12 +120,12 @@ class ShapeModel:
         Returns:
             A set of points that forms the shape of the average face
         """
-        sum_of_samples = np.zeros([194, 2])
+        shape = dataset[next(iter(dataset))].shape
+        sum_of_samples = np.zeros(shape)
         for points in dataset.values():
             sample = np.array(points)
             sum_of_samples += sample
         return sum_of_samples / len(dataset)
-
 
     def __covariance(self, dataset):
         """Calculates the covariance matrix of the data.
@@ -136,12 +136,13 @@ class ShapeModel:
         Returns:
             The covariance matrix.
         """
-        sum_of_samples = np.zeros([194, 194])
+        shape = dataset[next(iter(dataset))].shape
+        sum_of_samples = np.zeros([shape[0], shape[0]])
         for points in dataset.values():
             sample = np.array(points)
-            sum_of_samples += np.dot((sample - self.base_shape), np.transpose(sample - self.base_shape))
+            sum_of_samples += np.dot((sample - self.base_shape),
+                                     np.transpose(sample - self.base_shape))
         return sum_of_samples / (len(dataset) - 1)
-
 
     def __train_model(self, dataset):
         """Performs the Principal Component Analysis over a
@@ -176,7 +177,6 @@ class ShapeModel:
         faulty_vector = np.delete(self.vectors, falty_points, axis=0)
         difference = shape - falty_base
         return np.dot(faulty_vector.T, difference)
-
 
     def __init__(self, number_of_params, dataset):
         self.number_of_params = number_of_params

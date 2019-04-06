@@ -6,24 +6,24 @@ from modules.util import plot
 from modules.face_model import ShapeModel
 from modules.procrustes import root_mean_square, calculate_procrustes, find_theta, rotate
 
-with open('faulty_datasets_interpolation/training_150_20p_80c', 'rb') as f:
+with open('caltech.data', 'rb') as f:
     dataset = pickle.load(f)
 
-NUMBER_OF_PARAMS = 60
-START_INDEX = 120
-POINTS_TO_REMOVE = int(10 * 194 / 100)
+NUMBER_OF_PARAMS = 4
+START_INDEX = 4
+POINTS_TO_REMOVE = 0
 
 model = ShapeModel(NUMBER_OF_PARAMS, calculate_procrustes(dict(
     [(sample['file_name'], sample['annotation']) for sample in dataset]
 )))
 
-sample = dataset[0]
+# sample = dataset[0]
 
-normalized = sample['annotation']
-normalized -= np.mean(normalized, axis=0)
-normalized /= root_mean_square(normalized)
-theta = find_theta(model.base_shape, normalized)
-normalized = rotate(normalized, theta)
+# normalized = sample['annotation']
+# normalized -= np.mean(normalized, axis=0)
+# normalized /= root_mean_square(normalized)
+# theta = find_theta(model.base_shape, normalized)
+# normalized = rotate(normalized, theta)
 
 
 # faulty_points = np.random.randint(0, 194, POINTS_TO_REMOVE)

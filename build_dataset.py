@@ -1,39 +1,63 @@
 #!/bin/python3.6
-import pickle, dill
-import os, sys
+import pickle
+import dill
+import os
+import sys
 import numpy as np
-import cv2, dlib
+import cv2
+import dlib
 import argparse
+from random import shuffle
 from multiprocessing import Pool, cpu_count
 from imutils import resize
 
-parser = argparse.ArgumentParser(description='Prepares a dataset for the facial landmarks algorithm\'s training process.')
+parser = argparse.ArgumentParser(
+    description='Prepares a dataset for the facial landmarks algorithm\'s training process.')
 parser.add_argument('images_path', help='directory to read the images from.')
-parser.add_argument('annotations_path', help='directory to read the annotations from.')
+parser.add_argument('annotations_path',
+                    help='directory to read the annotations from.')
 parser.add_argument('-o', '--output', help='output file', default='data.bin')
+parser.add_argument('-s', '--separator', help='separator', default=' ')
 args = parser.parse_args()
 
 print('reading images from directory')
-data = []
-for file_name in os.listdir(args.images_path):
+raw_data = []
+files = os.listdir(args.images_path)
+shuffle(files)
+for file_name in files:
     path = os.path.join(args.images_path, file_name)
-    data.append({
+    raw_data.append({
         'file_name': file_name,
         'image': cv2.imread(path, 0)
     })
 
+data = []
 print('reading annotations')
-for i, sample in enumerate(data):
-    path = os.path.join(args.annotations_path, sample['file_name'][0:-4] + '.txt')
+for i, sample in enumerate(raw_data):
+    path = os.path.join(args.annotations_path,
+                        sample['file_name'][0:-4] + '.txt')
+    is_bad = False
     with open(path, 'r') as csv_file:
         points = []
         for line in csv_file:
-            [point_x, point_y] = line.split(' , ')
+            [point_x, point_y] = line.split(args.separator)
+            if float(point_x) <= 0.1 or float(point_y) <= 0.1:
+                is_bad = True
+                continue
             point = (float(point_x), float(point_y))
             points.append(point)
-        data[i]['annotation'] = np.array(points)
+        if is_bad:
+            print('## Bad file {}'.format(sample['file_name']))
+        else:
+            data.append({
+                'file_name': sample['file_name'],
+                'image': sample['image'],
+                'annotation': np.array(points)
+            })
 
 detector = dlib.get_frontal_face_detector()
+
+
 def process(sample):
     file_name = sample['file_name']
     annotation = sample['annotation']

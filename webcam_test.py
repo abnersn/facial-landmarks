@@ -17,7 +17,7 @@ from imutils import resize
 cap = cv2.VideoCapture(0)
 detector = dlib.get_frontal_face_detector()
 
-with open('trained_complete/model_2000i_120p', 'rb') as f:
+with open('model_2.data', 'rb') as f:
     model = pickle.load(f)
 
 regressors = model['regressors']

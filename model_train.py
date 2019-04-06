@@ -1,7 +1,9 @@
 #!/bin/python3.6
 import argparse
-import pickle, dill
-import os, sys
+import pickle
+import dill
+import os
+import sys
 import numpy as np
 import cv2
 import modules.util as util
@@ -11,27 +13,44 @@ from modules.procrustes import calculate_procrustes, root_mean_square
 from scipy.spatial.distance import cdist as distance
 from imutils import resize
 
-parser = argparse.ArgumentParser(description='This script will train a set of regression trees over a preprocessed dataset.')
-parser.add_argument('dataset_path', help='Directory to load the pre processed data from.')
-parser.add_argument('-r', '--regressors', default=10, help='Number of regressors to train.', type=int)
-parser.add_argument('-t', '--trees', default=500, help='Number of trees.', type=int)
+parser = argparse.ArgumentParser(
+    description='This script will train a set of regression trees over a preprocessed dataset.')
+parser.add_argument(
+    'dataset_path', help='Directory to load the pre processed data from.')
+parser.add_argument('-r', '--regressors', default=10,
+                    help='Number of regressors to train.', type=int)
+parser.add_argument('-t', '--trees', default=500,
+                    help='Number of trees.', type=int)
 parser.add_argument('-d', '--depth', default=3, help='Trees depth.', type=int)
-parser.add_argument('-q', '--points', default=400, help='Number of sample points.', type=int)
-parser.add_argument('-p', '--parameters', default=120, help='Number of parameters to considerer for the PCA.', type=int)
-parser.add_argument('-o', '--output', default='model', help='Output filename.', type=str)
-parser.add_argument('--silent', action='store_true', help='Turn on silent mode, output will not be printed.')
-parser.add_argument('--safe', action='store_true', help='Turn on safe mode, regressors will be saved after each iteration of the training process.')
+parser.add_argument('-q', '--points', default=400,
+                    help='Number of sample points.', type=int)
+parser.add_argument('-p', '--parameters', default=76,
+                    help='Number of parameters to considerer for the PCA.', type=int)
+parser.add_argument('-o', '--output', default='model.data',
+                    help='Output filename.', type=str)
+parser.add_argument('--silent', action='store_true',
+                    help='Turn on silent mode, output will not be printed.')
+parser.add_argument('--safe', action='store_true',
+                    help='Turn on safe mode, regressors will be saved after each iteration of the training process.')
+parser.add_argument('--range', type=str, default='0-190')
 args = parser.parse_args()
 
 model = {}
+
 
 def log(message):
     if not args.silent:
         print(message)
 
+
 log('reading dataset')
 with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
+
+[start, end] = args.range.split('-')
+del dataset[int(start):int(end)]
+
+log('Processing {} images'.format(len(dataset)))
 
 log('calculating PCA model')
 pca_model = ShapeModel(args.parameters, calculate_procrustes(dict(
@@ -45,6 +64,7 @@ RADIUS = 2 * root_mean_square(pca_model.base_shape)
 sample_points = util.sort_points(args.points, [0, 0], RADIUS)
 
 model['sample_points'] = sample_points
+
 
 def first_estimation(item):
     image = item['image']
@@ -78,17 +98,19 @@ def first_estimation(item):
     item['regression_data'] = params_real_shape - params_estimation
     return item
 
+
 log('calculating first estimations')
 dataset = list(map(first_estimation, dataset))
 
 regressors = []
 current_regressor = []
 
+
 def update_estimation(item):
     # Normalize the estimation
     estimation_norm = ((item['estimation']
                         - item['pivot'])
-                        / item['scale'])
+                       / item['scale'])
 
     # Displace the parameters according to the prediction
     params_estimation = pca_model.retrieve_parameters(estimation_norm)
@@ -111,7 +133,7 @@ def update_estimation(item):
     new_estimation = (new_estimation_norm
                       * item['scale']
                       + item['pivot'])
-    
+
     # Update data
     if len(current_regressor) == 1:
         item['previous_estimation'] = np.copy(item['estimation'])
@@ -119,8 +141,9 @@ def update_estimation(item):
 
     return item
 
+
 def update_warping(item):
-    # Warp the points 
+    # Warp the points
     item['sample_points'] = util.warp(
         item['sample_points'],
         item['previous_estimation'],
@@ -137,6 +160,7 @@ def update_warping(item):
             item['intensity_data'][i] = 0
     return item
 
+
 debug_sample = 4
 
 for r in range(args.regressors):
@@ -148,7 +172,7 @@ for r in range(args.regressors):
         log('training tree {}, from regressor {}...'.format(i + 1, r + 1))
         tree = RegressionTree(args.depth, dataset)
         current_regressor.append(tree)
-        
+
         log('updating estimations')
         dataset = list(map(update_estimation, dataset))
         # DEBUG /start
@@ -164,11 +188,10 @@ for r in range(args.regressors):
         # util.plot(_image, _sample_points, util.BLUE)
         util.plot(_image, _estimation, util.WHITE)
 
-
         cv2.imshow('image', _image)
         k = cv2.waitKey(100) & 0xFF
         if k == 27:
-            break
+            sys.exit()
         elif k == 110:
             debug_sample -= 1
             log('sample {}'.format(debug_sample))
