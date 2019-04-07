@@ -188,17 +188,17 @@ for r in range(args.regressors):
         # util.plot(_image, _sample_points, util.BLUE)
         util.plot(_image, _estimation, util.WHITE)
 
-        cv2.imshow('image', _image)
-        k = cv2.waitKey(100) & 0xFF
-        if k == 27:
-            sys.exit()
-        elif k == 110:
-            debug_sample -= 1
-            log('sample {}'.format(debug_sample))
-        elif k == 109:
-            debug_sample += 1
-            log('sample {}'.format(debug_sample))
-        debug_sample = min(max(debug_sample, 0), 1999)
+        #cv2.imshow('image', _image)
+        #k = cv2.waitKey(100) & 0xFF
+        #if k == 27:
+        #    sys.exit()
+        #elif k == 110:
+        #    debug_sample -= 1
+        #    log('sample {}'.format(debug_sample))
+        #elif k == 109:
+        #    debug_sample += 1
+        #    log('sample {}'.format(debug_sample))
+        #debug_sample = min(max(debug_sample, 0), 1999)
         # DEGUG /end
     regressors.append(current_regressor)
 

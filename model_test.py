@@ -25,6 +25,7 @@ parser.add_argument('-i', '--image', action='store_true',
                     help='Whether or not display the images.')
 parser.add_argument('-l', '--limit', default=10,
                     help='Limit the number of regressors to apply.', type=int)
+parser.add_argument('--range', default='0-10', type=str)
 args = parser.parse_args()
 
 
@@ -36,6 +37,8 @@ def log(message):
 log('loading dataset')
 with open(args.dataset_path, 'rb') as f:
     dataset = dill.load(f)
+    [start, end] = args.range.split('-')
+    dataset = dataset[start:end]
 
 log('loading model')
 with open(args.model_path, 'rb') as f:
