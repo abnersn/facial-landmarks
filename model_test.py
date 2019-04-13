@@ -25,7 +25,7 @@ parser.add_argument('-i', '--image', action='store_true',
                     help='Whether or not display the images.')
 parser.add_argument('-l', '--limit', default=10,
                     help='Limit the number of regressors to apply.', type=int)
-parser.add_argument('--range', default='0-10', type=str)
+
 args = parser.parse_args()
 
 
@@ -36,9 +36,10 @@ def log(message):
 
 log('loading dataset')
 with open(args.dataset_path, 'rb') as f:
-    dataset = dill.load(f)
-    [start, end] = args.range.split('-')
-    dataset = dataset[start:end]
+    #dataset = dill.load(f)
+    a = args.model_path
+    [start, end] = a.split("/")[-1].split("_")[2].split(".")[0].split("-")
+    dataset = dill.load(f)[int(start):int(end)]
 
 log('loading model')
 with open(args.model_path, 'rb') as f:
@@ -81,8 +82,11 @@ dataset = list(map(first_estimation, dataset))
 
 
 def interocular_distance(shape):
-    left_eye = [shape[27], shape[29]]
-    right_eye = [shape[34], shape[32]]
+    #left_eye = [shape[27], shape[29]]
+    #right_eye = [shape[34], shape[32]]
+
+    left_eye = shape[114:134]
+    right_eye = shape[134:154]
 
     middle_left = np.mean(left_eye, axis=0)
     middle_right = np.mean(right_eye, axis=0)
@@ -156,4 +160,5 @@ for j, item in enumerate(dataset):
 
 errors /= len(dataset)
 
-print('Average error: {}'.format(np.mean(errors)))
+with open("results.txt", "a") as result_file:
+    result_file.write('\n{}: {}\n'.format(args.model_path, np.mean(errors)))
