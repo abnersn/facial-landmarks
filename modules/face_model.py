@@ -163,7 +163,7 @@ class ShapeModel:
         e_values = e_values[0:self.number_of_params]
         e_vectors = e_vectors[:, 0:self.number_of_params]
 
-        return e_vectors
+        return [e_vectors, e_values]
 
     def deform(self, parameters):
         return self.base_shape + np.dot(self.vectors, parameters)
@@ -181,4 +181,6 @@ class ShapeModel:
     def __init__(self, number_of_params, dataset):
         self.number_of_params = number_of_params
         self.base_shape = self.__mean_of_faces(dataset)
-        self.vectors = self.__train_model(dataset)
+        [v, e] = self.__train_model(dataset)
+        self.vectors = v
+        self.eigen = e
