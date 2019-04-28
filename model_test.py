@@ -163,4 +163,5 @@ for j, item in enumerate(dataset):
 errors /= len(dataset)
 
 with open("results.txt", "a") as result_file:
-    result_file.write('\n{}: {}\n'.format(args.model_path, np.mean(errors)))
+    result_file.write(
+        '\n{}: {} - {} reg\n'.format(args.model_path, np.mean(errors), args.limit))
