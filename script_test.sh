@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for LIMIT in 1 .. 10
+for LIMIT in {0..10}
 do
 # HELEN
 cat ranges_helen.txt | parallel --verbose python model_test.py datasets/helen.data -m helen_120_{}.data -l $LIMIT
