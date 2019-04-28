@@ -21,7 +21,8 @@ args = parser.parse_args()
 with open(args.dataset_path, 'rb') as f:
     dataset = pickle.load(f)
 
-extremity_points = [0, 14, 15, 45, 37, 21, 38, 44, 54, 48, 32, 34, 29, 27]
+extremity_points = [0, 14, 15, 45, 37, 21, 38,
+                    44, 54, 48, 32, 34, 29, 27, 31, 36, 67, 64]
 #extremity_points = [0, 40, 41, 57, 58, 113, 114, 133, 134, 153, 154, 173, 174, 193]
 
 removal_candidates = [i for i in range(0, 76) if i not in extremity_points]

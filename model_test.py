@@ -21,7 +21,7 @@ parser.add_argument('-m', '--model_path',
                     default='./model.data', help='Trained model file path.')
 parser.add_argument('-v', '--verbose', action='store_true',
                     help='Whether or not print a detailed output.')
-parser.add_argument('-i', '--image', action='store_true',
+parser.add_argument('-i', '--image', action='store_true', default=False,
                     help='Whether or not display the images.')
 parser.add_argument('-l', '--limit', default=10,
                     help='Limit the number of regressors to apply.', type=int)
@@ -37,7 +37,7 @@ def log(message):
 
 log('loading dataset')
 with open(args.dataset_path, 'rb') as f:
-    #dataset = dill.load(f)
+    # dataset = dill.load(f)
     a = args.model_path
     [start, end] = a.split("/")[-1].split("_")[2].split(".")[0].split("-")
     dataset = dill.load(f)[int(start):int(end)]
@@ -138,20 +138,23 @@ for j, item in enumerate(dataset):
 
     if args.image:
         _image = cv2.imread(
-            './datasets/caltech/images/{}'.format(item['file_name']))
+            '{}/images/{}'.format(args.dataset_path.split('.')[0], item['file_name']))
         # util.plot(_image, item['annotation'], util.BLACK)
         util.plot(_image, item['estimation'], [0, 255, 255])
 
         percentage = args.model_path.split('_')[-1]
 
-        # if j in [3, 10, 12, 19]:
-        #     name = item['file_name'].replace('.jpg', '_ref.jpg'.format(percentage))
-        #     cv2.imwrite(name, _image)
+        p = 'images/{}'.format(args.model_path.split('/')[1].replace('.data', ''))
+        if not os.path.exists(p):
+            os.mkdir(p)
 
-        cv2.imshow('image', resize(_image, height=600))
-        k = cv2.waitKey(0) & 0xFF
-        if k == 27:
-            sys.exit(0)
+        name = '{}/{}'.format(p, item['file_name'])
+        cv2.imwrite(name, _image)
+
+        # cv2.imshow('image', resize(_image, height=600))
+        # k = cv2.waitKey(0) & 0xFF
+        # if k == 27:
+        #     sys.exit(0)
 
     log('Calculating error on {} image {}'.format(j, item['file_name']))
     for i, point_estimation in enumerate(item['estimation']):
