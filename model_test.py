@@ -25,6 +25,7 @@ parser.add_argument('-i', '--image', action='store_true',
                     help='Whether or not display the images.')
 parser.add_argument('-l', '--limit', default=10,
                     help='Limit the number of regressors to apply.', type=int)
+parser.add_argument('--ismuct', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -82,11 +83,12 @@ dataset = list(map(first_estimation, dataset))
 
 
 def interocular_distance(shape):
-    #left_eye = [shape[27], shape[29]]
-    #right_eye = [shape[34], shape[32]]
-
-    left_eye = shape[114:134]
-    right_eye = shape[134:154]
+    if args.ismuct:
+        left_eye = [shape[27], shape[29]]
+        right_eye = [shape[34], shape[32]]
+    else:
+        left_eye = shape[114:134]
+        right_eye = shape[134:154]
 
     middle_left = np.mean(left_eye, axis=0)
     middle_right = np.mean(right_eye, axis=0)
