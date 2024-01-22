@@ -138,7 +138,9 @@ A princípio, o método foi testado com todas as formas definidas integralmente,
 
 #### Resultado de predições feitas pelo método proposto sobre uma amostra do Helen Dataset, com diferentes quantidades de parâmetros da PCA, em comparação à demarcação real dos pontos.
 
-<img src="https://s3.amazonaws.com/abnersn/github/facial-landmarks/figuras/fig1.jpg" width="600" />
+| 80 parâmetros | 100 parâmetros | 120 parâmetros | Forma real |
+| ------------- | -------------- | -------------- | ---------- |
+| ![80 parâmetros](figs/1443377029_1_80p.jpg) | ![100 parâmetros](figs/1443377029_1_100p.jpg) | ![120 parâmetros](figs/1443377029_1_10r_120p.jpg) | ![Forma real](figs/1443377029_1_ref.jpg) |
 
 ### Desempenho em bases com falhas de demarcação
 
