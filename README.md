@@ -54,7 +54,15 @@ Em geral, as técnicas baseadas em ajustes granulares alcançam performances sup
 
 Seja $\boldsymbol{I}$ uma imagem representada como uma matriz bidimensional em que cada elemento contém a intensidade em escala de cinza de um pixel. Para um conjunto de $n$ pontos de interesse de $\boldsymbol{I}$, dados por $(x_1, y_1), (x_2, y_2), \cdots , (x_n, y_n)$, e distribuídos ao longo dos traços faciais delimitantes, pode-se definir uma forma $\boldsymbol{S}$ conforme a matriz abaixo. Deseja-se, pois, obter a matriz estimativa $\boldsymbol{\hat{S}}$, de modo que os elementos de $\boldsymbol{\hat{S}}$ se aproximem dos respectivos elementos de $\boldsymbol{S}$ tanto quanto possível.
 
-$$\boldsymbol{S} =\begin{matrix}x_1 & y_1 \x_2 & y_2 \vdots & \vdots \x_n & y_n\end{matrix}.$$
+$$
+\boldsymbol{S} =
+\begin{bmatrix}
+x_1 & y_1 \\
+x_2 & y_2 \\
+\vdots & \vdots \\
+x_n & y_n
+\end{bmatrix}.
+$$
 
 Em síntese, o processo inicia-se pela correção de possíveis falhas na base de dados através da heurística de interpolação linear. Em seguida, o modelo paramétrico é construído com auxílio da análise de componentes principais e uma estimativa inicial é calculada para cada amostra. Por fim, uma cadeia de regressores é treinada para realizar o ajuste dos parâmetros das estimativas iniciais, até que se alcance a convergência.
 
