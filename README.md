@@ -64,7 +64,7 @@ Quando a base de dados utilizada para a construção do modelo apresenta falhas 
 
 Seja $K = \langle (x_i, y_i), \cdots, (x_j, y_j) \rangle$ uma lista contígua de pontos faltantes entre os índices $i$ e $j$, ao longo forma $\boldsymbol{S}$, de modo que $(x_{i - 1}, y_{i-1})$ e $(x_{j + 1}, y_{j + 1})$ sejam pontos de extremidade com localizações conhecidas. É possível interpolar os valores dos pontos $(x_k, y_k)$, com $i \leq k \leq j$, por meio da equação:
 
-![(x_k, y_k) = (x_{i - 1}, y_{i - 1}) + \frac{j - k + 1}{j - i + 1}[(x_{j + 1}, y_{j + 1}) - (x_{i - 1}, y_{i-1})].](https://s3.amazonaws.com/abnersn/github/facial-landmarks/equations/eq_21.png)
+$$(x_k, y_k) = (x_{i - 1}, y_{i - 1}) + \frac{j - k + 1}{j - i + 1}[(x_{j + 1}, y_{j + 1}) - (x_{i - 1}, y_{i-1})].$$
 
 ### Análise de componentes principais
 
@@ -76,11 +76,11 @@ $\boldsymbol{\bar{S}}$ se refere à média das $k$ formas de $W$, $\boldsymbol{B
 
 Antes do cálculo do modelo é preciso normalizar as formas de $W$. Para normalizar uma forma $\boldsymbol{S}$, com $n$ pontos $(x_i, y_i)$, efetua-se a translação, escalonamento e rotação de $\boldsymbol{S}$ pelos respectivos fatores $\boldsymbol{\tau}$, $\lambda$ e $\theta$ descritos a seguir (Kendall 1989). Os termos $(z_i, w_i)$ são pontos de $\boldsymbol{S_1}$, após sua normalização por $\boldsymbol{\tau}$ e $\lambda$.
 
-![\boldsymbol{\tau} = \sum_{i = 1}^{n}\frac{(x_i, y_i)}{n};
+$$\boldsymbol{\tau} = \sum_{i = 1}^{n}\frac{(x_i, y_i)}{n};
 \qquad
 \lambda = \sqrt{\sum_{i = 1}^{n} \frac{x_i^2 + y_i^2}{n}};
 \qquad
-\theta = \arctan{\left ( \frac{\sum_{i = 1}^{n} y_iz_i - x_iw_i}{\sum_{i = 1}^{n} x_iz_i + y_iw_i} \right )}.](https://s3.amazonaws.com/abnersn/github/facial-landmarks/equations/eq_45.png)
+\theta = \arctan{\left ( \frac{\sum_{i = 1}^{n} y_iz_i - x_iw_i}{\sum_{i = 1}^{n} x_iz_i + y_iw_i} \right )}.$$
 
 ### Aplicação das árvores de regressão
 
