@@ -148,7 +148,10 @@ De modo a avaliar o desempenho da técnica quando aplicada em bases com falhas n
 
 #### Amostras de treino com pontos faltantes, corrigidos pela heurística de interpolação linear, em comparação com a forma original
 
-<img src="https://s3.amazonaws.com/abnersn/github/facial-landmarks/figuras/fig2.jpg" width="600" />
+
+| 80% faltantes | 60% faltantes | 40% faltantes | Forma original |
+| ------------- | ------------- | ------------- | -------------- |
+| ![80% faltantes](figs/corrigido_80c.jpg) | ![60% faltantes](figs/corrigido_60c.jpg) | ![40% faltantes](figs/corrigido_40c.jpg) | ![Forma original](figs/corrigido_ref.jpg) |
 
 Sobre as bases faltantes, foram treinadas cadeias de regressores a partir de modelos PCA com diferentes quantidades de parâmetros. As taxas obtidas permitem constatar a proximidade entre os resultados alcançados pelos modelos faltantes e os modelos de referência, treinados sobre a base de dados completa. Apesar das deformações resultantes da interpolação linear, os ajustes puderam conservar a suavidade das curvas e consistência das formas, mesmo na ausência de 80% dos pontos.
 
@@ -156,7 +159,12 @@ No intuito de verificar a redução progressiva do erro ao longo da cadeia de re
 
 #### Exemplos de resultados obtidos a partir de modelos treinados com pontos faltantes em comparação com as respectivas demarcações reais. Foram utilizados 120 parâmetros da PCA
 
-<img src="https://s3.amazonaws.com/abnersn/github/facial-landmarks/figuras/fig3.jpg" width="600" />
+
+| 80% faltantes | 60% faltantes | 40% faltantes | Demarcação real |
+| ------------- | ------------- | ------------- | -------------- |
+| ![80% faltantes](figs/2978322154_1_80c.jpg) | ![60% faltantes](figs/2978322154_1_60c.jpg) | ![40% faltantes](figs/2978322154_1_40c.jpg) | ![Demarcação real](figs/2978322154_1_ref.jpg) |
+| ![80% faltantes](figs/288343911_2_80c.jpg) | ![60% faltantes](figs/288343911_2_60c.jpg) | ![40% faltantes](figs/288343911_2_40c.jpg) | ![Demarcação real](figs/288343911_2_ref.jpg) |
+| ![80% faltantes](figs/214426541_2_80c.jpg) | ![60% faltantes](figs/214426541_2_60c.jpg) | ![40% faltantes](figs/214426541_2_40c.jpg) | ![Demarcação real](figs/214426541_2_ref.jpg) |
 
 #### Erro resultante nas amostras de teste após a aplicação dos regressores treinados em amostras com pontos faltantes corrigidas por interpolação linear
 
@@ -176,7 +184,10 @@ No intuito de verificar a redução progressiva do erro ao longo da cadeia de re
 
 #### Redução do erro em função do número de regressores para modelos treinados com parte dos pontos faltantes em comparação à mesma métrica para o modelo treinado integralmente. Foram usados 120 parâmetros da PCA
 
-<img src="https://s3.amazonaws.com/abnersn/github/facial-landmarks/figuras/fig4.jpg" width="600" />
+
+| 40% dos pontos faltantes | 60% dos pontos faltantes | 80% dos pontos faltantes |
+| ----------------------- | ----------------------- | ----------------------- |
+| ![40% dos pontos faltantes](figs/regressores_40.png) | ![60% dos pontos faltantes](figs/regressores_60.png) | ![80% dos pontos faltantes](figs/regressores_80.png) |
 
 ### Discussões
 
